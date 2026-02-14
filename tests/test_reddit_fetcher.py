@@ -9,7 +9,8 @@ import os
 from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# 添加 src 目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from reddit_fetcher import RedditFetcher, RedditPost
 

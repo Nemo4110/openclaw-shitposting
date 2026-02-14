@@ -11,7 +11,8 @@ import tempfile
 import shutil
 from unittest.mock import Mock, patch, MagicMock
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# 添加 src 目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from main import load_configs, validate_config, run_curation
 

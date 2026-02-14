@@ -4,7 +4,7 @@
 Reddit 弱智内容自动采集与 Telegram 推送
 
 Usage:
-    python main.py [--limit N] [--min-score N] [--dry-run]
+    python scripts/run.py [--limit N] [--min-score N] [--dry-run]
 
 Options:
     --limit N       每个 subreddit 抓取的最大帖子数 [default: 10]
@@ -19,20 +19,24 @@ import argparse
 from datetime import datetime
 from typing import List, Tuple
 
-# 添加脚本目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from reddit_fetcher import RedditFetcher
 from content_judge import ContentJudge, HistoryManager
-from telegram_push import TelegramPusher, push_posts_sync
+from telegram_push import push_posts_sync
 from logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
+def get_project_root() -> str:
+    """获取项目根目录"""
+    # 从 src 目录向上追溯到项目根目录
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(src_dir)
+
+
 def load_configs() -> Tuple[dict, dict, dict]:
     """加载所有配置文件"""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = get_project_root()
     
     with open(os.path.join(base_dir, 'config', 'config.json'), 'r', encoding='utf-8') as f:
         config = json.load(f)
@@ -95,9 +99,9 @@ def run_curation(
     # 使用命令行参数覆盖配置
     judge_config['min_shitpost_score'] = min_score
     
+    base_dir = get_project_root()
     history_file = storage.get('history_file', 'data/history.json')
     if not os.path.isabs(history_file):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         history_file = os.path.join(base_dir, history_file)
     
     # 2. 抓取 Reddit 内容
@@ -197,10 +201,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py                    # Run with default config
-  python main.py --limit 20         # Fetch 20 posts per subreddit
-  python main.py --min-score 8      # Only push content with score >= 8
-  python main.py --dry-run          # Dry run mode, no actual push
+  python scripts/run.py                    # Run with default config
+  python scripts/run.py --limit 20         # Fetch 20 posts per subreddit
+  python scripts/run.py --min-score 8      # Only push content with score >= 8
+  python scripts/run.py --dry-run          # Dry run mode, no actual push
         """
     )
     

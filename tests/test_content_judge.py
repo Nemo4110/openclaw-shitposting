@@ -8,8 +8,8 @@ import sys
 import os
 import hashlib
 
-# 添加 scripts 目录到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# 添加 src 目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from content_judge import ContentJudge, HistoryManager, JudgeResult
 

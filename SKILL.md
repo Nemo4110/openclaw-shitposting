@@ -25,6 +25,12 @@
 pip install -r requirements.txt
 ```
 
+或从源码安装：
+
+```bash
+pip install -e .
+```
+
 ### 2. 配置 Reddit API
 
 访问 https://www.reddit.com/prefs/apps 创建应用，获取：
@@ -45,7 +51,13 @@ pip install -r requirements.txt
 ### 手动执行
 
 ```bash
-python scripts/main.py --limit 10 --min-score 7
+python scripts/run.py --limit 10 --min-score 7
+```
+
+或使用安装后的命令：
+
+```bash
+shitpost-curator --limit 10 --min-score 7
 ```
 
 ### 参数说明
@@ -59,7 +71,7 @@ python scripts/main.py --limit 10 --min-score 7
 ```yaml
 triggers:
   - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "python scripts/main.py --limit 15 --min-score 7"
+    command: "python scripts/run.py --limit 15 --min-score 7"
 ```
 
 ### 运行测试
@@ -72,25 +84,29 @@ python -m unittest discover -v tests
 
 ```
 openclaw-shitposting/
-├── SKILL.md                    # 本文件
-├── README.md                   # 使用说明
-├── requirements.txt            # Python 依赖
-├── config/
-│   ├── config.json            # 主配置（需手动填写）
-│   └── filters.json           # 过滤规则
-├── scripts/
+├── src/                         # 源代码目录
 │   ├── __init__.py
-│   ├── logger.py              # 日志配置（带文件路径和行号）
-│   ├── main.py                # 主入口
-│   ├── reddit_fetcher.py      # Reddit 抓取
-│   ├── content_judge.py       # 弱智度评分
-│   └── telegram_push.py       # Telegram 推送
-├── tests/                     # 单元测试
+│   ├── main.py                  # 主入口
+│   ├── reddit_fetcher.py        # Reddit 抓取
+│   ├── content_judge.py         # 弱智度评分
+│   ├── telegram_push.py         # Telegram 推送
+│   └── logger.py                # 日志配置
+├── tests/                       # 单元测试
 │   ├── test_content_judge.py
 │   ├── test_reddit_fetcher.py
 │   └── test_integration.py
-└── data/
-    └── history.json           # 已推送记录（自动生成）
+├── scripts/
+│   └── run.py                   # 启动脚本
+├── config/
+│   ├── config.json             # 主配置
+│   └── filters.json            # 过滤规则
+├── data/                        # 数据目录
+├── docs/                        # 项目文档
+├── pyproject.toml              # 构建系统配置
+├── requirements.txt            # Python 依赖
+├── README.md                   # 使用说明
+├── SKILL.md                    # 本文件（Skill 定义）
+└── LICENSE                     # 许可协议
 ```
 
 ## Target Subreddits

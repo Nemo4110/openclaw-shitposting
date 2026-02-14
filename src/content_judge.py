@@ -10,9 +10,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
 import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from logger import setup_logger
 
 logger = setup_logger(__name__)

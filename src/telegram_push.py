@@ -8,10 +8,7 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from telegram import Bot
 from telegram.constants import ParseMode
-import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -147,7 +144,7 @@ class TelegramPusher:
                 upvotes=post.upvotes,
                 comments=post.comment_count,
                 media_url=post.media_url,
-                content=post.content if post.content not in ['[image]', '[video]', '[image gallery]'] else None,
+                content=post.content if post.content not in ['[图片]', '[视频]', '[图片集]'] else None,
                 disable_notification=disable_notification
             )
             results.append(result)
@@ -192,7 +189,7 @@ Upvotes: {upvotes} | Comments: {comments}
 Source: r/{subreddit}
 """
         
-        if content and content not in ['[image]', '[video]', '[image gallery]']:
+        if content and content not in ['[图片]', '[视频]', '[图片集]']:
             message += f"\nContent: {content_escaped}\n"
         
         message += f"\n<a href=\"{url}\">View Original Post</a>"
@@ -298,6 +295,7 @@ def push_post_sync(
 if __name__ == "__main__":
     # 测试
     import json
+    import os
     
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.json')
     with open(config_path, 'r', encoding='utf-8') as f:

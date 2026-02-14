@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openclaw-shitposting"
+version = "1.0.0"
+description = "自动从 Reddit 采集弱智/脑残/搞笑内容，经 AI 筛选后推送到 Telegram 群的 OpenClaw Skill"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "OpenClaw Community"}
+]
+keywords = ["reddit", "telegram", "bot", "shitpost", "openclaw", "skill"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "praw>=7.7.0",
+    "python-telegram-bot>=20.0",
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "flake8>=5.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+shitpost-curator = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/openclaw/shitpost-curator"
+Documentation = "https://github.com/openclaw/shitpost-curator#readme"
+Repository = "https://github.com/openclaw/shitpost-curator"
+Issues = "https://github.com/openclaw/shitpost-curator/issues"
+
+[tool.setuptools]
+py-modules = [
+    "main",
+    "reddit_fetcher",
+    "content_judge",
+    "telegram_push",
+    "logger",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

@@ -18,6 +18,12 @@
 pip install -r requirements.txt
 ```
 
+或从源码安装：
+
+```bash
+pip install -e .
+```
+
 ### 2. 配置 Reddit API
 
 1. 访问 https://www.reddit.com/prefs/apps
@@ -55,12 +61,17 @@ pip install -r requirements.txt
 
 **测试模式**（不推送，仅查看结果）：
 ```bash
-python scripts/main.py --dry-run --limit 5
+python scripts/run.py --dry-run --limit 5
 ```
 
 **正式运行**：
 ```bash
-python scripts/main.py --limit 15 --min-score 7
+python scripts/run.py --limit 15 --min-score 7
+```
+
+或使用安装后的命令：
+```bash
+shitpost-curator --limit 15 --min-score 7
 ```
 
 ## 使用说明
@@ -135,33 +146,38 @@ kimi "/curate-shitpost"
 ```yaml
 triggers:
   - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "python scripts/main.py --limit 15 --min-score 7"
+    command: "python scripts/run.py --limit 15 --min-score 7"
 ```
 
-## 目录结构
+## 项目结构
 
 ```
 openclaw-shitposting/
-├── SKILL.md                    # Skill 定义
-├── README.md                   # 本文件
-├── requirements.txt            # Python 依赖
-├── config/
-│   ├── config.json            # 主配置（需填写凭证）
-│   └── filters.json           # 过滤规则（关键词等）
-├── scripts/
+├── src/                         # 源代码目录
 │   ├── __init__.py
-│   ├── logger.py              # 日志配置（带文件行号）
-│   ├── main.py                # 主入口
-│   ├── reddit_fetcher.py      # Reddit 抓取
-│   ├── content_judge.py       # 弱智度评分
-│   └── telegram_push.py       # Telegram 推送
-├── tests/                     # 单元测试
+│   ├── main.py                  # 主入口
+│   ├── reddit_fetcher.py        # Reddit 抓取
+│   ├── content_judge.py         # 弱智度评分
+│   ├── telegram_push.py         # Telegram 推送
+│   └── logger.py                # 日志配置
+├── tests/                       # 单元测试
 │   ├── __init__.py
 │   ├── test_content_judge.py
 │   ├── test_reddit_fetcher.py
 │   └── test_integration.py
-└── data/
-    └── history.json           # 已推送记录（自动生成）
+├── scripts/                     # 启动入口
+│   └── run.py                   # 启动脚本
+├── config/                      # 配置文件
+│   ├── config.json             # 主配置（需填写凭证）
+│   └── filters.json            # 过滤规则（关键词等）
+├── data/                        # 数据目录
+│   └── history.json            # 已推送记录（自动生成）
+├── docs/                        # 项目文档
+├── pyproject.toml              # 构建系统配置
+├── requirements.txt            # Python 依赖
+├── README.md                   # 本文件
+├── SKILL.md                    # Skill 定义
+└── LICENSE                     # 许可协议
 ```
 
 ## 日志输出格式
@@ -184,6 +200,26 @@ openclaw-shitposting/
    os.environ['HTTPS_PROXY'] = 'http://127.0.0.1:7890'
    ```
 3. **内容安全**：已内置黑名单过滤，但仍建议人工抽查
+
+## 开发
+
+### 安装开发依赖
+
+```bash
+pip install -e ".[dev]"
+```
+
+### 代码格式化
+
+```bash
+black src tests
+```
+
+### 类型检查
+
+```bash
+mypy src
+```
 
 ## 许可
 

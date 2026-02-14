@@ -6,11 +6,7 @@ Reddit 内容抓取模块
 import praw
 from dataclasses import dataclass
 from typing import List, Optional
-import os
-import sys
 
-# 添加 logger 到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -146,7 +142,7 @@ class RedditFetcher:
         
         if submission.is_video:
             media_url = submission.media['reddit_video']['fallback_url'] if submission.media else None
-            content = "[video]"
+            content = "[视频]"
         elif hasattr(submission, 'is_gallery') and submission.is_gallery:
             # 图库帖子
             media_items = []
@@ -155,12 +151,12 @@ class RedditFetcher:
                     if item and 's' in item:
                         media_items.append(item['s'].get('u', ''))
             media_url = media_items[0] if media_items else None
-            content = "[image gallery]"
+            content = "[图片集]"
         elif submission.url and not submission.is_self:
             # 外链图片
             if any(ext in submission.url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
                 media_url = submission.url
-                content = "[image]"
+                content = "[图片]"
             else:
                 content = submission.url
         
@@ -190,8 +186,10 @@ class RedditFetcher:
 if __name__ == "__main__":
     # 测试代码
     import json
+    import os
+    import sys
     
-    # 读取配置
+    # 读取配置（从项目根目录）
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.json')
     with open(config_path, 'r', encoding='utf-8') as f:
         config = json.load(f)
