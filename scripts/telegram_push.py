@@ -4,15 +4,17 @@ Telegram 推送模块
 """
 
 import asyncio
-import logging
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from telegram import Bot
 from telegram.constants import ParseMode
-import aiohttp
+import os
+import sys
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 @dataclass
@@ -39,7 +41,7 @@ class TelegramPusher:
         self.chat_id = chat_id
         self.parse_mode = parse_mode
         self.bot = Bot(token=bot_token)
-        logger.info(f"Telegram Bot 初始化完成，目标 Chat: {chat_id}")
+        logger.info(f"Telegram Bot initialized, target chat: {chat_id}")
     
     async def push_post(
         self,
@@ -101,7 +103,7 @@ class TelegramPusher:
                 return PushResult(success=True, message_id=message.message_id, error=None)
                 
         except Exception as e:
-            logger.error(f"推送失败: {e}")
+            logger.error(f"Push failed: {e}")
             return PushResult(success=False, message_id=None, error=str(e))
     
     async def push_posts(
@@ -115,7 +117,7 @@ class TelegramPusher:
         
         Args:
             posts_with_scores: [(post, judge_result), ...] 的列表
-            header: 批次头部消息（如"🚽 今日弱智内容精选"）
+            header: 批次头部消息（如"Daily Shitpost Selection"）
             disable_notification: 是否静默发送
         
         Returns:
@@ -133,7 +135,7 @@ class TelegramPusher:
                     disable_notification=disable_notification
                 )
             except Exception as e:
-                logger.error(f"发送头部消息失败: {e}")
+                logger.error(f"Failed to send header: {e}")
         
         # 逐个推送
         for post, judge_result in posts_with_scores:
@@ -145,7 +147,7 @@ class TelegramPusher:
                 upvotes=post.upvotes,
                 comments=post.comment_count,
                 media_url=post.media_url,
-                content=post.content if post.content not in ['[图片]', '[视频]', '[图片集合]'] else None,
+                content=post.content if post.content not in ['[image]', '[video]', '[image gallery]'] else None,
                 disable_notification=disable_notification
             )
             results.append(result)
@@ -166,15 +168,15 @@ class TelegramPusher:
         content: Optional[str] = None
     ) -> str:
         """格式化消息内容"""
-        # 弱智度表情
+        # 弱智度指示器
         if score >= 9:
-            score_emoji = "🤯"
+            score_indicator = "[MAX]"
         elif score >= 8:
-            score_emoji = "🚽"
+            score_indicator = "[HIGH]"
         elif score >= 7:
-            score_emoji = "💩"
+            score_indicator = "[MID]"
         else:
-            score_emoji = "😐"
+            score_indicator = "[LOW]"
         
         # 转义 HTML 特殊字符
         title_escaped = title.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -183,17 +185,17 @@ class TelegramPusher:
             if len(content) > 200:
                 content_escaped += "..."
         
-        message = f"""{score_emoji} <b>{title_escaped}</b>
+        message = f"""{score_indicator} <b>{title_escaped}</b>
 
-📊 弱智度: <code>{score:.1f}/10</code>
-👍 {upvotes} | 💬 {comments}
-📌 r/{subreddit}
+Score: <code>{score:.1f}/10</code>
+Upvotes: {upvotes} | Comments: {comments}
+Source: r/{subreddit}
 """
         
-        if content and content not in ['[图片]', '[视频]', '[图片集合]']:
-            message += f"\n📝 {content_escaped}\n"
+        if content and content not in ['[image]', '[video]', '[image gallery]']:
+            message += f"\nContent: {content_escaped}\n"
         
-        message += f"\n🔗 <a href=\"{url}\">查看原帖</a>"
+        message += f"\n<a href=\"{url}\">View Original Post</a>"
         
         return message
     
@@ -231,11 +233,11 @@ class TelegramPusher:
             
         except Exception as e:
             # 媒体发送失败，降级为文本
-            logger.warning(f"媒体发送失败，降级为文本: {e}")
+            logger.warning(f"Media send failed, falling back to text: {e}")
             try:
                 message = await self.bot.send_message(
                     chat_id=self.chat_id,
-                    text=caption + f"\n\n📎 媒体: {media_url}",
+                    text=caption + f"\n\nMedia: {media_url}",
                     parse_mode=ParseMode.HTML if self.parse_mode == "HTML" else self.parse_mode,
                     disable_notification=disable_notification
                 )
@@ -254,7 +256,7 @@ class TelegramPusher:
             )
             return PushResult(success=True, message_id=message.message_id, error=None)
         except Exception as e:
-            logger.error(f"发送状态消息失败: {e}")
+            logger.error(f"Failed to send status message: {e}")
             return PushResult(success=False, message_id=None, error=str(e))
 
 
@@ -296,7 +298,6 @@ def push_post_sync(
 if __name__ == "__main__":
     # 测试
     import json
-    import os
     
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.json')
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -306,18 +307,18 @@ if __name__ == "__main__":
     
     # 检查配置是否已填写
     if 'YOUR_' in tg_config['bot_token'] or 'YOUR_' in tg_config['chat_id']:
-        print("⚠️ 请先填写 config.json 中的 Telegram 配置")
+        logger.error("Please fill in Telegram credentials in config/config.json")
     else:
         # 发送测试消息
         result = push_post_sync(
             bot_token=tg_config['bot_token'],
             chat_id=tg_config['chat_id'],
-            title="🚽 搬屎机器人测试消息",
+            title="[TEST] Shitpost Curator Bot",
             url="https://reddit.com/r/shitposting",
             subreddit="shitposting",
             score=9.5,
             upvotes=9999,
             comments=666,
-            content="这是一条测试消息，验证 Telegram 推送功能是否正常工作。"
+            content="This is a test message to verify Telegram push functionality."
         )
-        print(f"推送结果: {result}")
+        logger.info(f"Push result: success={result.success}, message_id={result.message_id}")

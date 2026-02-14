@@ -6,10 +6,14 @@ Reddit 内容抓取模块
 import praw
 from dataclasses import dataclass
 from typing import List, Optional
-import logging
+import os
+import sys
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 添加 logger 到路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 @dataclass
@@ -58,7 +62,7 @@ class RedditFetcher:
             user_agent=user_agent,
             check_for_async=False  # 避免异步警告
         )
-        logger.info(f"Reddit API 连接成功: {self.reddit.user.me()}")
+        logger.info(f"Reddit API connected: {self.reddit.user.me()}")
     
     def fetch_subreddit(
         self,
@@ -104,7 +108,7 @@ class RedditFetcher:
             post = self._convert_submission(submission)
             posts.append(post)
         
-        logger.info(f"从 r/{subreddit_name} 获取了 {len(posts)} 个帖子")
+        logger.info(f"Fetched {len(posts)} posts from r/{subreddit_name}")
         return posts
     
     def fetch_multiple(
@@ -126,12 +130,12 @@ class RedditFetcher:
                 posts = self.fetch_subreddit(sub_name, sort, time_filter, limit_per_sub)
                 all_posts.extend(posts)
             except Exception as e:
-                logger.error(f"获取 r/{sub_name} 失败: {e}")
+                logger.error(f"Failed to fetch r/{sub_name}: {e}")
                 continue
         
         # 按点赞数排序
         all_posts.sort(key=lambda p: p.upvotes, reverse=True)
-        logger.info(f"总共获取了 {len(all_posts)} 个帖子")
+        logger.info(f"Total posts fetched: {len(all_posts)}")
         return all_posts
     
     def _convert_submission(self, submission) -> RedditPost:
@@ -142,7 +146,7 @@ class RedditFetcher:
         
         if submission.is_video:
             media_url = submission.media['reddit_video']['fallback_url'] if submission.media else None
-            content = "[视频]"
+            content = "[video]"
         elif hasattr(submission, 'is_gallery') and submission.is_gallery:
             # 图库帖子
             media_items = []
@@ -151,12 +155,12 @@ class RedditFetcher:
                     if item and 's' in item:
                         media_items.append(item['s'].get('u', ''))
             media_url = media_items[0] if media_items else None
-            content = "[图片集合]"
+            content = "[image gallery]"
         elif submission.url and not submission.is_self:
             # 外链图片
             if any(ext in submission.url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
                 media_url = submission.url
-                content = "[图片]"
+                content = "[image]"
             else:
                 content = submission.url
         
@@ -186,7 +190,6 @@ class RedditFetcher:
 if __name__ == "__main__":
     # 测试代码
     import json
-    import os
     
     # 读取配置
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.json')
@@ -194,6 +197,11 @@ if __name__ == "__main__":
         config = json.load(f)
     
     reddit_config = config['reddit']
+    
+    # 检查配置
+    if 'YOUR_' in reddit_config['client_id']:
+        logger.error("Please fill in Reddit credentials in config/config.json")
+        sys.exit(1)
     
     # 初始化 fetcher
     fetcher = RedditFetcher(
@@ -205,4 +213,4 @@ if __name__ == "__main__":
     # 测试获取
     posts = fetcher.fetch_subreddit('shitposting', limit=5)
     for post in posts:
-        print(f"[{post.subreddit}] {post.title[:50]}... (👍{post.upvotes})")
+        logger.info(f"[{post.subreddit}] {post.title[:50]}... (upvotes: {post.upvotes})")

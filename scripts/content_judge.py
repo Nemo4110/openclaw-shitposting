@@ -9,11 +9,13 @@ import hashlib
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
-import logging
 import os
+import sys
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 @dataclass
@@ -69,23 +71,23 @@ class ContentJudge:
                     logic_score=0,
                     total_score=0,
                     is_shitpost=False,
-                    reasons=[f"命中黑名单关键词: {black_kw}"]
+                    reasons=[f"Blacklisted keyword: {black_kw}"]
                 )
         
         # 2. 标题关键词评分 (0-3分)
         title_score = self._calculate_title_score(post.title)
         if title_score > 0:
-            reasons.append(f"标题关键词匹配得分: {title_score:.1f}")
+            reasons.append(f"Title keyword score: {title_score:.1f}")
         
         # 3. 互动特征评分 (0-3分)
         engagement_score = self._calculate_engagement_score(post)
         if engagement_score > 0:
-            reasons.append(f"互动特征得分: {engagement_score:.1f}")
+            reasons.append(f"Engagement score: {engagement_score:.1f}")
         
         # 4. 逻辑悖论评分 (0-4分) - 简化版，不使用 LLM
         logic_score = self._calculate_logic_score(post)
         if logic_score > 0:
-            reasons.append(f"逻辑悖论得分: {logic_score:.1f}")
+            reasons.append(f"Logic paradox score: {logic_score:.1f}")
         
         # 计算总分
         total_score = title_score + engagement_score + logic_score
@@ -93,9 +95,9 @@ class ContentJudge:
         
         # 添加通过/失败理由
         if is_shitpost:
-            reasons.append(f"✅ 弱智度达标 ({total_score:.1f} >= {self.min_score})")
+            reasons.append(f"PASS: shitpost score {total_score:.1f} >= {self.min_score}")
         else:
-            reasons.append(f"❌ 弱智度不足 ({total_score:.1f} < {self.min_score})")
+            reasons.append(f"FAIL: shitpost score {total_score:.1f} < {self.min_score}")
         
         return JudgeResult(
             post_id=post.short_id,
@@ -246,7 +248,7 @@ class HistoryManager:
                 data = json.load(f)
                 return set(data.get('posted_ids', []))
         except Exception as e:
-            logger.error(f"加载历史记录失败: {e}")
+            logger.error(f"Failed to load history: {e}")
             return set()
     
     def save_history(self):
@@ -269,14 +271,13 @@ class HistoryManager:
     def filter_new_posts(self, posts: List) -> List:
         """过滤出未推送过的帖子"""
         new_posts = [p for p in posts if not self.is_posted(p.short_id)]
-        logger.info(f"过滤后新帖子: {len(new_posts)}/{len(posts)}")
+        logger.info(f"Filtered new posts: {len(new_posts)}/{len(posts)}")
         return new_posts
 
 
 if __name__ == "__main__":
     # 测试
     import sys
-    sys.path.insert(0, os.path.dirname(__file__))
     
     # 模拟数据
     class MockPost:
@@ -312,6 +313,7 @@ if __name__ == "__main__":
     
     for post in test_posts:
         result = judge.judge(post)
-        print(f"\n[{post.subreddit}] {post.title}")
-        print(f"  总分: {result.total_score:.1f} | {'✅弱智' if result.is_shitpost else '❌正常'}")
-        print(f"  理由: {', '.join(result.reasons)}")
+        status = "PASS" if result.is_shitpost else "FAIL"
+        logger.info(f"[{post.subreddit}] {post.title}")
+        logger.info(f"  Score: {result.total_score:.1f} | {status}")
+        logger.info(f"  Reasons: {', '.join(result.reasons)}")

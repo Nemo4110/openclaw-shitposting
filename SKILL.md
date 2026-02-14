@@ -7,7 +7,7 @@
 ## Features
 
 - 从 Reddit 热门弱智版块抓取内容（r/shitposting, r/okbuddyretard 等）
-- 智能"弱智度"评分算法（关键词匹配 + LLM 评估）
+- 智能"弱智度"评分算法（关键词匹配 + 互动特征 + 逻辑悖论检测）
 - 自动去重（基于 URL + 内容 hash）
 - Telegram Bot 推送
 - 支持定时任务和手动触发
@@ -62,6 +62,12 @@ triggers:
     command: "python scripts/main.py --limit 15 --min-score 7"
 ```
 
+### 运行测试
+
+```bash
+python -m unittest discover -v tests
+```
+
 ## Directory Structure
 
 ```
@@ -74,10 +80,15 @@ openclaw-shitposting/
 │   └── filters.json           # 过滤规则
 ├── scripts/
 │   ├── __init__.py
+│   ├── logger.py              # 日志配置（带文件路径和行号）
 │   ├── main.py                # 主入口
 │   ├── reddit_fetcher.py      # Reddit 抓取
 │   ├── content_judge.py       # 弱智度评分
 │   └── telegram_push.py       # Telegram 推送
+├── tests/                     # 单元测试
+│   ├── test_content_judge.py
+│   ├── test_reddit_fetcher.py
+│   └── test_integration.py
 └── data/
     └── history.json           # 已推送记录（自动生成）
 ```
@@ -100,7 +111,7 @@ openclaw-shitposting/
 
 弱智度评分（0-10分）基于以下维度：
 
-1. **关键词匹配**（权重 20%）
+1. **关键词匹配**（权重 30%）
    - 中文："绝了", "离谱", "大无语", "cpu烧了"
    - 英文："wtf", "bruh", "yikes", "cringe"
 
@@ -108,9 +119,18 @@ openclaw-shitposting/
    - 高评论数 + 中等点赞 = +3分
    - 低赞踩比（<0.7）+ 高互动 = +2分
 
-3. **LLM 逻辑悖论检测**（权重 50%）
-   - 使用本地/远程 LLM 评估内容的逻辑一致性
-   - 逻辑漏洞越大，分数越高
+3. **逻辑悖论检测**（权重 40%）
+   - 特定弱智版块加分
+   - "Nobody: / Me:" 经典格式
+   - 自相矛盾的表达
+
+## Logging
+
+使用带文件路径和行号的日志格式：
+
+```
+2024-01-15 10:30:45 - reddit_fetcher.py:85 - INFO - Fetched 10 posts from r/shitposting
+```
 
 ## License
 

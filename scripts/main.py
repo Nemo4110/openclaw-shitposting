@@ -16,7 +16,6 @@ import json
 import os
 import sys
 import argparse
-import logging
 from datetime import datetime
 from typing import List, Tuple
 
@@ -26,12 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from reddit_fetcher import RedditFetcher
 from content_judge import ContentJudge, HistoryManager
 from telegram_push import TelegramPusher, push_posts_sync
+from logger import setup_logger
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 def load_configs() -> Tuple[dict, dict, dict]:
@@ -55,17 +51,18 @@ def validate_config(config: dict) -> bool:
     errors = []
     
     if 'YOUR_' in reddit.get('client_id', ''):
-        errors.append("❌ Reddit client_id 未配置")
+        errors.append("Reddit client_id not configured")
     if 'YOUR_' in reddit.get('client_secret', ''):
-        errors.append("❌ Reddit client_secret 未配置")
+        errors.append("Reddit client_secret not configured")
     if 'YOUR_' in telegram.get('bot_token', ''):
-        errors.append("❌ Telegram bot_token 未配置")
+        errors.append("Telegram bot_token not configured")
     if 'YOUR_' in telegram.get('chat_id', ''):
-        errors.append("❌ Telegram chat_id 未配置")
+        errors.append("Telegram chat_id not configured")
     
     if errors:
-        print("\n".join(errors))
-        print("\n请编辑 config/config.json 填写必要的凭证信息")
+        for error in errors:
+            logger.error(error)
+        logger.error("Please edit config/config.json to fill in required credentials")
         return False
     
     return True
@@ -85,9 +82,10 @@ def run_curation(
     Returns:
         成功推送的帖子数量
     """
-    print(f"\n{'='*50}")
-    print(f"🚽 搬屎机器人启动 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*50}\n")
+    separator = "=" * 50
+    logger.info(separator)
+    logger.info(f"Shitpost Curator Bot Started - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(separator)
     
     # 1. 初始化组件
     reddit_config = config['reddit']
@@ -103,7 +101,7 @@ def run_curation(
         history_file = os.path.join(base_dir, history_file)
     
     # 2. 抓取 Reddit 内容
-    print("📥 正在从 Reddit 抓取内容...")
+    logger.info("Fetching content from Reddit...")
     try:
         fetcher = RedditFetcher(
             client_id=reddit_config['client_id'],
@@ -117,11 +115,10 @@ def run_curation(
             time_filter=reddit_config.get('time_filter', 'day'),
             limit_per_sub=limit
         )
-        print(f"✅ 共抓取 {len(posts)} 个帖子\n")
+        logger.info(f"Fetched {len(posts)} posts total")
         
     except Exception as e:
-        logger.error(f"抓取 Reddit 失败: {e}")
-        print(f"❌ 抓取失败: {e}")
+        logger.error(f"Failed to fetch from Reddit: {e}")
         return 0
     
     # 3. 去重
@@ -129,43 +126,42 @@ def run_curation(
     new_posts = history.filter_new_posts(posts)
     
     if not new_posts:
-        print("📭 没有新内容需要处理")
+        logger.info("No new content to process")
         return 0
     
     # 4. 弱智度评分
-    print("🧠 正在进行弱智度评分...")
+    logger.info("Judging shitpost scores...")
     judge = ContentJudge(filters, judge_config)
     results = judge.judge_batch(new_posts)
     
     # 打印评分结果
     for post, result in zip(new_posts, results):
-        status = "✅" if result.is_shitpost else "❌"
-        print(f"  {status} [{post.subreddit}] {post.title[:40]}... | 弱智度: {result.total_score:.1f}")
+        status = "PASS" if result.is_shitpost else "FAIL"
+        logger.info(f"[{post.subreddit}] {post.title[:40]}... | Score: {result.total_score:.1f} | {status}")
     
     # 5. 筛选高弱智度内容
     shitposts = judge.filter_shitposts(new_posts, results)
     
     if not shitposts:
-        print(f"\n📭 没有找到弱智度 ≥ {min_score} 的内容")
+        logger.info(f"No content with shitpost score >= {min_score} found")
         return 0
     
-    print(f"\n🎯 筛选出 {len(shitposts)} 个高弱智度帖子\n")
+    logger.info(f"Selected {len(shitposts)} high-scored shitposts")
     
     # 6. 推送到 Telegram
     if dry_run:
-        print("🧪 测试模式，仅显示结果不推送:\n")
+        logger.info("DRY RUN MODE - Results will not be pushed:")
         for post, result in shitposts:
-            print(f"  标题: {post.title[:50]}...")
-            print(f"  链接: {post.full_url}")
-            print(f"  弱智度: {result.total_score:.1f}")
-            print(f"  理由: {'; '.join(result.reasons[:3])}")
-            print()
+            logger.info(f"  Title: {post.title[:50]}...")
+            logger.info(f"  URL: {post.full_url}")
+            logger.info(f"  Score: {result.total_score:.1f}")
+            logger.info(f"  Reasons: {'; '.join(result.reasons[:3])}")
         return len(shitposts)
     
-    print("📤 正在推送到 Telegram...")
+    logger.info("Pushing to Telegram...")
     try:
-        header = f"🚽 <b>弱智内容精选</b> ({datetime.now().strftime('%m/%d %H:%M')})\n\n"
-        header += "今日为您搬运的精选弱智内容："
+        header = f"<b>Daily Shitpost Selection</b> ({datetime.now().strftime('%m/%d %H:%M')})\n\n"
+        header += "Today's curated shitpost content:"
         
         results = push_posts_sync(
             bot_token=telegram_config['bot_token'],
@@ -180,7 +176,7 @@ def run_curation(
         success_count = sum(1 for r in results if r.success)
         fail_count = len(results) - success_count
         
-        print(f"✅ 推送完成: {success_count} 成功, {fail_count} 失败")
+        logger.info(f"Push completed: {success_count} succeeded, {fail_count} failed")
         
         # 7. 记录已推送
         for post, _ in shitposts:
@@ -190,22 +186,21 @@ def run_curation(
         return success_count
         
     except Exception as e:
-        logger.error(f"推送 Telegram 失败: {e}")
-        print(f"❌ 推送失败: {e}")
+        logger.error(f"Failed to push to Telegram: {e}")
         return 0
 
 
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description='🚽 搬屎机器人 - Reddit 弱智内容采集与推送',
+        description='Shitpost Curator Bot - Reddit shitpost collection and Telegram push',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-  python main.py                    # 使用默认配置运行
-  python main.py --limit 20         # 每个版块抓取 20 个帖子
-  python main.py --min-score 8      # 只推送弱智度 8 分以上的内容
-  python main.py --dry-run          # 测试模式，不实际推送
+Examples:
+  python main.py                    # Run with default config
+  python main.py --limit 20         # Fetch 20 posts per subreddit
+  python main.py --min-score 8      # Only push content with score >= 8
+  python main.py --dry-run          # Dry run mode, no actual push
         """
     )
     
@@ -213,18 +208,18 @@ def main():
         '--limit',
         type=int,
         default=10,
-        help='每个 subreddit 抓取的最大帖子数 (默认: 10)'
+        help='Maximum posts to fetch per subreddit (default: 10)'
     )
     parser.add_argument(
         '--min-score',
         type=float,
         default=6.0,
-        help='弱智度最低阈值 0-10 (默认: 6)'
+        help='Minimum shitpost score threshold 0-10 (default: 6)'
     )
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='测试模式，只显示结果不推送'
+        help='Dry run mode, only display results without pushing'
     )
     
     args = parser.parse_args()
@@ -233,7 +228,7 @@ def main():
     try:
         config, filters, storage = load_configs()
     except Exception as e:
-        print(f"❌ 加载配置失败: {e}")
+        logger.error(f"Failed to load config: {e}")
         sys.exit(1)
     
     # 验证配置（dry-run 模式下可以跳过）
@@ -251,16 +246,16 @@ def main():
             dry_run=args.dry_run
         )
         
-        print(f"\n{'='*50}")
-        print(f"🎉 任务完成，共处理 {count} 个帖子")
-        print(f"{'='*50}\n")
+        logger.info("=" * 50)
+        logger.info(f"Task completed, processed {count} posts")
+        logger.info("=" * 50)
         
     except KeyboardInterrupt:
-        print("\n\n⚠️ 用户中断")
+        logger.warning("User interrupted")
         sys.exit(0)
     except Exception as e:
-        logger.exception("运行时错误")
-        print(f"\n❌ 运行时错误: {e}")
+        logger.exception("Runtime error")
+        logger.error(f"Runtime error: {e}")
         sys.exit(1)
 
 

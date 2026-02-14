@@ -1,14 +1,14 @@
-# 🚽 搬屎机器人 (Shitpost Curator)
+# Shitpost Curator
 
 基于 OpenClaw 的 Reddit 弱智内容自动采集与 Telegram 推送 Skill。
 
 ## 功能特性
 
-- 🤖 自动从 Reddit 热门弱智版块抓取内容
-- 🧠 智能"弱智度"评分算法（关键词 + 互动特征 + 逻辑悖论检测）
-- 🚫 自动去重（基于 URL + 内容 hash）
-- 📤 Telegram Bot 推送（支持图文）
-- ⏰ 支持定时任务和手动触发
+- 自动从 Reddit 热门弱智版块抓取内容
+- 智能"弱智度"评分算法（关键词 + 互动特征 + 逻辑悖论检测）
+- 自动去重（基于 URL + 内容 hash）
+- Telegram Bot 推送（支持图文）
+- 支持定时任务和手动触发
 
 ## 快速开始
 
@@ -103,7 +103,20 @@ python scripts/main.py --limit 15 --min-score 7
    - 特定弱智版块加分
    - "Nobody: / Me:" 经典 meme 格式
    - 自相矛盾的表达
-   - 荒谬的夸张表达
+
+## 运行测试
+
+项目包含完整的单元测试，不依赖外部 API：
+
+```bash
+# 运行所有测试
+python -m unittest discover -v tests
+
+# 运行特定测试
+python -m unittest tests.test_content_judge -v
+python -m unittest tests.test_reddit_fetcher -v
+python -m unittest tests.test_integration -v
+```
 
 ## OpenClaw 集成
 
@@ -136,12 +149,28 @@ openclaw-shitposting/
 │   ├── config.json            # 主配置（需填写凭证）
 │   └── filters.json           # 过滤规则（关键词等）
 ├── scripts/
+│   ├── __init__.py
+│   ├── logger.py              # 日志配置（带文件行号）
 │   ├── main.py                # 主入口
 │   ├── reddit_fetcher.py      # Reddit 抓取
 │   ├── content_judge.py       # 弱智度评分
 │   └── telegram_push.py       # Telegram 推送
+├── tests/                     # 单元测试
+│   ├── __init__.py
+│   ├── test_content_judge.py
+│   ├── test_reddit_fetcher.py
+│   └── test_integration.py
 └── data/
     └── history.json           # 已推送记录（自动生成）
+```
+
+## 日志输出格式
+
+使用带文件路径和行号的日志格式：
+
+```
+2024-01-15 10:30:45 - reddit_fetcher.py:85 - INFO - Fetched 10 posts from r/shitposting
+2024-01-15 10:30:46 - content_judge.py:142 - INFO - Filtered new posts: 8/10
 ```
 
 ## 注意事项
