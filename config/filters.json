@@ -1,0 +1,28 @@
+{
+  "shitpost_keywords": {
+    "en": [
+      "wtf", "bruh", "yikes", "cringe", "lmao", "lol", "omg",
+      "what", "why", "how", "seriously", "literally", "absolutely",
+      "nobody", "expect", "understand", "confused", "lost"
+    ],
+    "zh": [
+      "绝了", "离谱", "大无语", "无语", "cpu烧了", "烧脑",
+      "看不懂", "不明白", "什么鬼", "啥玩意", "懵了", "迷惑",
+      "窒息", "辣眼睛", "裂开", "麻了", "服了", "整不会"
+    ]
+  },
+  "blacklist_keywords": [
+    "nsfw", "gore", "death", "kill", "murder", "porn",
+    "politic", "trump", "biden", "election"
+  ],
+  "whitelist_domains": [
+    "i.redd.it",
+    "v.redd.it",
+    "reddit.com",
+    "imgur.com",
+    "gyazo.com"
+  ],
+  "min_upvotes": 50,
+  "min_comments": 5,
+  "max_age_hours": 48
+}
