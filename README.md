@@ -60,16 +60,19 @@ pip install -e .
 ### 5. 运行
 
 **测试模式**（不推送，仅查看结果）：
+
 ```bash
 python scripts/run.py --dry-run --limit 5
 ```
 
 **正式运行**：
+
 ```bash
 python scripts/run.py --limit 15 --min-score 7
 ```
 
 或使用安装后的命令：
+
 ```bash
 shitpost-curator --limit 15 --min-score 7
 ```
@@ -79,7 +82,7 @@ shitpost-curator --limit 15 --min-score 7
 ### 命令行参数
 
 | 参数 | 说明 | 默认值 |
-|------|------|--------|
+| ------ | ------ | -------- |
 | `--limit N` | 每个 subreddit 抓取的最大帖子数 | 10 |
 | `--min-score N` | 弱智度最低阈值 (0-10) | 6.0 |
 | `--dry-run` | 测试模式，只显示结果不推送 | False |
@@ -151,7 +154,7 @@ triggers:
 
 ## 项目结构
 
-```
+```text
 openclaw-shitposting/
 ├── src/                         # 源代码目录
 │   ├── __init__.py
@@ -193,12 +196,14 @@ openclaw-shitposting/
 
 1. **Reddit API 限制**：100 请求/分钟，日常使用足够
 2. **代理设置**：如果在国内访问 Reddit，可能需要配置代理：
+
    ```python
    # 在 reddit_fetcher.py 中添加
    import os
    os.environ['HTTP_PROXY'] = 'http://127.0.0.1:7890'
    os.environ['HTTPS_PROXY'] = 'http://127.0.0.1:7890'
    ```
+
 3. **内容安全**：已内置黑名单过滤，但仍建议人工抽查
 
 ## 开发
