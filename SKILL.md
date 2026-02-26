@@ -14,21 +14,21 @@
 
 ## Tools
 
-- `python3`
-- `pip`
+- `node` >= 18.0.0
+- `npm`
 
 ## Setup
 
 ### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt
+npm install
 ```
 
-或从源码安装：
+或从 npm 安装：
 
 ```bash
-pip install -e .
+npm install -g shitpost-curator
 ```
 
 ### 2. 配置 Reddit API
@@ -51,7 +51,7 @@ pip install -e .
 ### 手动执行
 
 ```bash
-python scripts/run.py --limit 10 --min-score 7
+npm start -- --limit 10 --min-score 7
 ```
 
 或使用安装后的命令：
@@ -71,13 +71,13 @@ shitpost-curator --limit 10 --min-score 7
 ```yaml
 triggers:
   - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "python scripts/run.py --limit 15 --min-score 7"
+    command: "npx shitpost-curator --limit 15 --min-score 7"
 ```
 
 ### 运行测试
 
 ```bash
-python -m unittest discover -v tests
+npm test
 ```
 
 ## Directory Structure
@@ -85,28 +85,22 @@ python -m unittest discover -v tests
 ```
 openclaw-shitposting/
 ├── src/                         # 源代码目录
-│   ├── __init__.py
-│   ├── main.py                  # 主入口
-│   ├── reddit_fetcher.py        # Reddit 抓取
-│   ├── content_judge.py         # 弱智度评分
-│   ├── telegram_push.py         # Telegram 推送
-│   └── logger.py                # 日志配置
+│   ├── index.ts                 # OpenClaw Skill 入口
+│   ├── cli.ts                   # CLI 入口
+│   ├── curator.ts               # 核心业务流程
+│   ├── types/                   # TypeScript 类型定义
+│   ├── reddit/                  # Reddit 模块
+│   ├── judge/                   # 评分模块
+│   ├── telegram/                # Telegram 模块
+│   └── utils/                   # 工具模块
 ├── tests/                       # 单元测试
-│   ├── test_content_judge.py
-│   ├── test_reddit_fetcher.py
-│   └── test_integration.py
-├── scripts/
-│   └── run.py                   # 启动脚本
 ├── config/
 │   ├── config.json             # 主配置
 │   └── filters.json            # 过滤规则
 ├── data/                        # 数据目录
-├── docs/                        # 项目文档
-├── pyproject.toml              # 构建系统配置
-├── requirements.txt            # Python 依赖
-├── README.md                   # 使用说明
-├── SKILL.md                    # 本文件（Skill 定义）
-└── LICENSE                     # 许可协议
+├── package.json                # Node.js 配置
+├── tsconfig.json               # TypeScript 配置
+└── README.md                   # 使用说明
 ```
 
 ## Target Subreddits
@@ -145,7 +139,8 @@ openclaw-shitposting/
 使用带文件路径和行号的日志格式：
 
 ```
-2024-01-15 10:30:45 - reddit_fetcher.py:85 - INFO - Fetched 10 posts from r/shitposting
+2024-01-15 10:30:45 INFO  [reddit] Fetched 10 posts from r/shitposting
+2024-01-15 10:30:46 INFO  [judge] Filtered new posts: 8/10
 ```
 
 ## License

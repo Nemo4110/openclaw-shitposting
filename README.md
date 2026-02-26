@@ -9,19 +9,14 @@
 - 自动去重（基于 URL + 内容 hash）
 - Telegram Bot 推送（支持图文）
 - 支持定时任务和手动触发
+- **纯 TypeScript/Node.js 实现**，无需 Python 环境
 
 ## 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt
-```
-
-或从源码安装：
-
-```bash
-pip install -e .
+npm install
 ```
 
 ### 2. 配置 Reddit API
@@ -59,22 +54,29 @@ pip install -e .
 
 ### 5. 运行
 
+**开发模式**（使用 tsx）：
+
+```bash
+npm run dev -- --dry-run --limit 5
+```
+
 **测试模式**（不推送，仅查看结果）：
 
 ```bash
-python scripts/run.py --dry-run --limit 5
+npm run build
+npm start -- --dry-run --limit 5
 ```
 
 **正式运行**：
 
 ```bash
-python scripts/run.py --limit 15 --min-score 7
+npm start -- --limit 15 --min-score 7
 ```
 
-或使用安装后的命令：
+或使用全局命令（如果已发布到 npm）：
 
 ```bash
-shitpost-curator --limit 15 --min-score 7
+npx shitpost-curator --limit 15 --min-score 7
 ```
 
 ## 使用说明
@@ -82,10 +84,10 @@ shitpost-curator --limit 15 --min-score 7
 ### 命令行参数
 
 | 参数 | 说明 | 默认值 |
-| ------ | ------ | -------- |
+|------|------|--------|
 | `--limit N` | 每个 subreddit 抓取的最大帖子数 | 10 |
 | `--min-score N` | 弱智度最低阈值 (0-10) | 6.0 |
-| `--dry-run` | 测试模式，只显示结果不推送 | False |
+| `--dry-run` | 测试模式，只显示结果不推送 | false |
 
 ### 目标 Subreddits
 
@@ -120,16 +122,14 @@ shitpost-curator --limit 15 --min-score 7
 
 ## 运行测试
 
-项目包含完整的单元测试，不依赖外部 API：
+项目包含完整的单元测试：
 
 ```bash
 # 运行所有测试
-python -m unittest discover -v tests
+npm test
 
-# 运行特定测试
-python -m unittest tests.test_content_judge -v
-python -m unittest tests.test_reddit_fetcher -v
-python -m unittest tests.test_integration -v
+# 运行一次（非 watch 模式）
+npm run test:run
 ```
 
 ## OpenClaw 集成
@@ -149,7 +149,20 @@ kimi "/curate-shitpost"
 ```yaml
 triggers:
   - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "python scripts/run.py --limit 15 --min-score 7"
+    command: "npx shitpost-curator --limit 15 --min-score 7"
+```
+
+### 作为 Skill 调用
+
+```typescript
+import { skill } from 'openclaw-shitposting';
+
+const result = await skill.execute(
+  { workspacePath: '/path/to/project' },
+  { limit: 10, minScore: 7, dryRun: false }
+);
+
+console.log(`Pushed ${result.pushed} posts`);
 ```
 
 ## 项目结构
@@ -157,74 +170,87 @@ triggers:
 ```text
 openclaw-shitposting/
 ├── src/                         # 源代码目录
-│   ├── __init__.py
-│   ├── main.py                  # 主入口
-│   ├── reddit_fetcher.py        # Reddit 抓取
-│   ├── content_judge.py         # 弱智度评分
-│   ├── telegram_push.py         # Telegram 推送
-│   └── logger.py                # 日志配置
+│   ├── index.ts                 # 主入口 & OpenClaw Skill 导出
+│   ├── cli.ts                   # CLI 入口
+│   ├── curator.ts               # 核心业务流程
+│   ├── types/                   # TypeScript 类型定义
+│   │   └── index.ts
+│   ├── reddit/                  # Reddit 模块
+│   │   ├── client.ts            # Reddit API 客户端
+│   │   └── fetcher.ts           # 内容抓取逻辑
+│   ├── judge/                   # 评分模块
+│   │   ├── scorer.ts            # 弱智度评分算法
+│   │   └── history.ts           # 去重管理
+│   ├── telegram/                # Telegram 模块
+│   │   └── client.ts            # Telegram Bot API
+│   └── utils/                   # 工具模块
+│       ├── logger.ts            # 日志工具
+│       └── config.ts            # 配置加载 & 校验
 ├── tests/                       # 单元测试
-│   ├── __init__.py
-│   ├── test_content_judge.py
-│   ├── test_reddit_fetcher.py
-│   └── test_integration.py
-├── scripts/                     # 启动入口
-│   └── run.py                   # 启动脚本
+│   ├── judge.test.ts
+│   ├── history.test.ts
+│   └── config.test.ts
 ├── config/                      # 配置文件
 │   ├── config.json             # 主配置（需填写凭证）
 │   └── filters.json            # 过滤规则（关键词等）
 ├── data/                        # 数据目录
 │   └── history.json            # 已推送记录（自动生成）
-├── docs/                        # 项目文档
-├── pyproject.toml              # 构建系统配置
-├── requirements.txt            # Python 依赖
-├── README.md                   # 本文件
-├── SKILL.md                    # Skill 定义
-└── LICENSE                     # 许可协议
+├── package.json                # Node.js 项目配置
+├── tsconfig.json               # TypeScript 配置
+└── vitest.config.ts            # 测试配置
 ```
 
-## 日志输出格式
+## 技术栈
 
-使用带文件路径和行号的日志格式：
-
-```
-2024-01-15 10:30:45 - reddit_fetcher.py:85 - INFO - Fetched 10 posts from r/shitposting
-2024-01-15 10:30:46 - content_judge.py:142 - INFO - Filtered new posts: 8/10
-```
-
-## 注意事项
-
-1. **Reddit API 限制**：100 请求/分钟，日常使用足够
-2. **代理设置**：如果在国内访问 Reddit，可能需要配置代理：
-
-   ```python
-   # 在 reddit_fetcher.py 中添加
-   import os
-   os.environ['HTTP_PROXY'] = 'http://127.0.0.1:7890'
-   os.environ['HTTPS_PROXY'] = 'http://127.0.0.1:7890'
-   ```
-
-3. **内容安全**：已内置黑名单过滤，但仍建议人工抽查
+- **运行时**: Node.js 18+
+- **语言**: TypeScript 5.5+
+- **Reddit API**: 原生 `fetch` + OAuth2
+- **Telegram Bot**: `node-telegram-bot-api`
+- **配置校验**: `zod`
+- **测试**: `vitest`
 
 ## 开发
 
 ### 安装开发依赖
 
 ```bash
-pip install -e ".[dev]"
+npm install
 ```
 
-### 代码格式化
+### 开发模式（热重载）
 
 ```bash
-black src tests
+npm run dev
 ```
 
-### 类型检查
+### 构建
 
 ```bash
-mypy src
+npm run build
 ```
+
+### 代码检查
+
+```bash
+npm run lint
+```
+
+### 运行测试
+
+```bash
+npm test
+```
+
+## 注意事项
+
+1. **Reddit API 限制**：100 请求/分钟，日常使用足够
+2. **代理设置**：如果在国内访问 Reddit，可能需要配置代理：
+   ```bash
+   set HTTP_PROXY=http://127.0.0.1:7890
+   set HTTPS_PROXY=http://127.0.0.1:7890
+   npm start
+   ```
+3. **内容安全**：已内置黑名单过滤，但仍建议人工抽查
 
 ## 许可
 
