@@ -4,12 +4,7 @@
  */
 
 import type { RedditPost, JudgeResult, FilterConfig, JudgeConfig } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
-
-const logger = createLogger('judge');
-
 export class ContentJudge {
-  private filters: FilterConfig;
   private config: JudgeConfig;
   private minScore: number;
   private enKeywords: string[];
@@ -17,7 +12,7 @@ export class ContentJudge {
   private blacklist: string[];
 
   constructor(filters: FilterConfig, config: JudgeConfig) {
-    this.filters = filters;
+    // filters used to initialize keywords below
     this.config = config;
     this.minScore = config.minShitpostScore;
     this.enKeywords = filters.shitpostKeywords.en.map(kw => kw.toLowerCase());

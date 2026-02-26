@@ -4,8 +4,6 @@
  * 同时作为 CLI 工具和 OpenClaw Skill 使用
  */
 
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { ShitpostCurator, type CuratorResult } from './curator.js';
 import { loadConfig, validateConfig } from './utils/config.js';
 import { createLogger } from './utils/logger.js';
@@ -21,6 +19,7 @@ export interface SkillArgs {
   limit?: number;
   minScore?: number;
   dryRun?: boolean;
+  mockMode?: boolean;
 }
 
 export interface Skill {
@@ -39,6 +38,12 @@ export const skill: Skill = {
   version: '1.0.0',
 
   async execute(context: SkillContext, args: SkillArgs): Promise<CuratorResult> {
+    const mockMode = args.mockMode ?? process.env.MOCK_MODE === 'true';
+    
+    if (mockMode) {
+      logger.info('🎭 MOCK MODE ENABLED - Using mock data instead of real APIs');
+    }
+
     const options: RunOptions = {
       limit: args.limit ?? 10,
       minScore: args.minScore ?? 6,
@@ -47,11 +52,12 @@ export const skill: Skill = {
 
     const { config, filters } = loadConfig(context.workspacePath);
 
-    if (!options.dryRun && !validateConfig(config, options.dryRun)) {
+    // mock 模式下跳过配置校验
+    if (!mockMode && !options.dryRun && !validateConfig(config, options.dryRun)) {
       throw new Error('Invalid configuration');
     }
 
-    const curator = new ShitpostCurator(context.workspacePath, config, filters);
+    const curator = new ShitpostCurator(context.workspacePath, config, filters, mockMode);
     return await curator.run(options);
   },
 };

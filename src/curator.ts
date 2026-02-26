@@ -4,10 +4,12 @@
  */
 
 import { resolve, isAbsolute } from 'path';
-import type { Config, FilterConfig, RunOptions } from './types/index.js';
+import type { RunOptions } from './types/index.js';
+import type { Config, FilterConfig } from './utils/config.js';
 import { RedditFetcher } from './reddit/index.js';
 import { ContentJudge, HistoryManager } from './judge/index.js';
 import { TelegramPusher } from './telegram/index.js';
+import { MockRedditFetcher, MockTelegramPusher } from './mock/index.js';
 import { createLogger } from './utils/logger.js';
 
 const logger = createLogger('curator');
@@ -24,11 +26,13 @@ export class ShitpostCurator {
   private projectRoot: string;
   private config: Config;
   private filters: FilterConfig;
+  private mockMode: boolean;
 
-  constructor(projectRoot: string, config: Config, filters: FilterConfig) {
+  constructor(projectRoot: string, config: Config, filters: FilterConfig, mockMode: boolean = false) {
     this.projectRoot = projectRoot;
     this.config = config;
     this.filters = filters;
+    this.mockMode = mockMode;
   }
 
   /**
@@ -68,7 +72,9 @@ export class ShitpostCurator {
     // 2. 抓取 Reddit 内容
     logger.info('Fetching content from Reddit...');
     try {
-      const fetcher = new RedditFetcher(this.config.reddit);
+      const fetcher = this.mockMode 
+        ? new MockRedditFetcher(this.config.reddit)
+        : new RedditFetcher(this.config.reddit);
       const posts = await fetcher.fetchMultiple(
         this.config.reddit.subreddits,
         this.config.reddit.sort,
@@ -145,12 +151,19 @@ export class ShitpostCurator {
         minute: '2-digit',
       })})\n\nToday's curated shitpost content:`;
 
-      const pusher = new TelegramPusher({
-        botToken: this.config.telegram.botToken,
-        chatId: this.config.telegram.chatId,
-        parseMode: this.config.telegram.parseMode,
-        disableNotification: this.config.telegram.disableNotification,
-      });
+      const pusher = this.mockMode
+        ? new MockTelegramPusher({
+            botToken: this.config.telegram.botToken,
+            chatId: this.config.telegram.chatId,
+            parseMode: this.config.telegram.parseMode,
+            disableNotification: this.config.telegram.disableNotification,
+          })
+        : new TelegramPusher({
+            botToken: this.config.telegram.botToken,
+            chatId: this.config.telegram.chatId,
+            parseMode: this.config.telegram.parseMode,
+            disableNotification: this.config.telegram.disableNotification,
+          });
 
       const pushResults = await pusher.pushPosts(shitposts, header);
 

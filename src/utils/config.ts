@@ -160,7 +160,7 @@ export function loadConfig(projectRoot: string): { config: Config; filters: Filt
   }
 }
 
-export function validateConfig(config: Config, dryRun: boolean): boolean {
+export function validateConfig(config: Config, _dryRun: boolean): boolean {
   const errors: string[] = [];
 
   if (config.reddit.clientId.includes('YOUR_')) {
