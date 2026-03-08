@@ -1,6 +1,13 @@
 /**
- * 评分模块导出
+ * 弱智度评分模块
  */
 
-export { ContentJudge } from './scorer.js';
-export { HistoryManager } from './history.js';
+export {
+  isBlacklisted,
+  formatPostMessage,
+  generateSummary,
+  quickPreScore,
+  DEFAULT_BLACKLIST,
+  DEFAULT_KEYWORDS,
+  DEFAULT_SOURCES,
+} from './scorer.js';

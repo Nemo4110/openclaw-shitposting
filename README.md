@@ -1,316 +1,240 @@
-# Shitpost Curator
+# 找屎 Skill (Shit Finder)
 
-基于 OpenClaw 的 Reddit 弱智内容自动采集与 Telegram 推送 Skill。
+OpenClaw Skill - 专注于 Reddit 内容的"弱智度"评分，帮你找到最脑残/搞笑的帖子。
 
-## 功能特性
+## 两种使用模式
 
-- 自动从 Reddit 热门弱智版块抓取内容
-- 智能"弱智度"评分算法（关键词 + 互动特征 + 逻辑悖论检测）
-- 自动去重（基于 URL + 内容 hash）
-- Telegram Bot 推送（支持图文）
-- 支持定时任务和手动触发
-- **纯 TypeScript/Node.js 实现**，无需 Python 环境
+### 1. Library 模式 - 评分已有帖子
+分析已有的 Reddit 帖子列表，评分并筛选。
+
+### 2. Pipeline 模式 - 自动获取并分享 ⭐ 新功能
+自动从多个板块获取帖子、评分，并推送到配置的 channels。
 
 ## 快速开始
-
-### 方式一：Mock 模式（推荐首次体验）
-
-无需配置任何 API 凭证，直接使用模拟数据测试完整功能：
 
 ```bash
 # 安装依赖
 npm install
 
-# 运行 Mock 模式
-npm run dev -- --mock --limit 5
+# 构建
+npm run build
 
-# 或使用环境变量
-MOCK_MODE=true npm run dev -- --limit 5
+# 测试运行（不发送消息）
+npm run pipeline:dry
+
+# 实际运行并发送
+npm run pipeline
 ```
 
-### 方式二：正式模式（需要 API 配置）
+## Pipeline 工作流
 
-#### 1. 安装依赖
-
-```bash
-npm install
+```
+┌──────────────────┐
+│  配置板块列表     │ config/sources.json
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│  reddit-readonly │ 获取 r/shitposting, r/okbuddyretard 等
+│   (获取数据)      │
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│     评分引擎      │ 启发式评分 (0-10分)
+│                  │ 黑名单过滤
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│    Top N 排序     │ 选出最值得分享的 3 条
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│    消息发送器     │ 推送到配置的 channels
+└──────────────────┘
 ```
 
-### 2. 配置 Reddit API（Mock 模式可跳过）
+## 配置
 
-> **💡 提示**：如果你只是想测试功能而暂时不想配置 Reddit API，可以使用 **Mock 模式**：
-> ```bash
-> npm run dev -- --mock
-> # 或
-> MOCK_MODE=true npm run dev
-> ```
-> Mock 模式会使用内置的模拟数据，无需任何 API 配置即可测试完整流程。
-
-### 配置 Reddit API
-
-> **注意**：Reddit 于 2024 年更新了开发者政策，创建 API 应用前需要同意相关条款。
-
-1. 访问 https://www.reddit.com/prefs/apps
-2. **同意开发者条款**：如果是第一次访问，页面可能会显示 "Responsible Builder Policy" 提示，需要先阅读并同意条款（勾选相关确认框或点击同意按钮）
-3. 点击 "create another app..."
-4. 选择 **"script"** 类型（Script for personal use）
-5. 填写名称（name）和描述（description）
-6. **关于 URL 字段**：
-   - `about url`：可留空或填任意占位 URL（如 `http://localhost`）
-   - `redirect uri`：**必填**，但脚本类型不会实际使用，填 `http://localhost:8080` 即可
-7. 点击 "create app"
-8. 创建后获取 `client_id`（在应用名称下方的字符串）和 `client_secret`
-
-### 3. 配置 Telegram Bot（Mock 模式可跳过）
-
-> Mock 模式下 Telegram 推送也会被模拟，会在控制台显示推送内容而无需真实 Bot。
-
-### 配置 Telegram Bot
-
-1. 在 Telegram 中找 @BotFather，发送 `/newbot` 创建 Bot
-2. 获取 `bot_token`
-3. 将 Bot 加入目标群，发送一条消息
-4. 访问 `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` 获取 `chat_id`
-
-### 4. 填写配置
-
-编辑 `config/config.json`：
+编辑 `config/sources.json`：
 
 ```json
 {
-  "reddit": {
-    "client_id": "你的_client_id",
-    "client_secret": "你的_client_secret",
-    "user_agent": "ShitpostCuratorBot/1.0 by 你的用户名"
+  "sources": [
+    { "subreddit": "shitposting", "name": "弱智", "weight": 1.2 },
+    { "subreddit": "okbuddyretard", "name": "难绷", "weight": 1.1 },
+    { "subreddit": "comedyheaven", "name": "有趣", "weight": 1.0 },
+    { "subreddit": "facepalm", "name": "无语", "weight": 0.9 },
+    { "subreddit": "terriblefacebookmemes", "name": "老梗", "weight": 0.8 },
+    { "subreddit": "wtf", "name": "震惊", "weight": 1.0 }
+  ],
+  "fetch": {
+    "timeRange": "week",
+    "postsPerSource": 15,
+    "maxAgeDays": 7
   },
-  "telegram": {
-    "bot_token": "你的_bot_token",
-    "chat_id": "你的_chat_id"
+  "judge": {
+    "minScore": 5.5,
+    "maxResults": 3,
+    "autoShare": true
   }
 }
 ```
 
-### 5. 运行
-
-**Mock 模式**（无需配置，使用模拟数据）：
+## 环境变量
 
 ```bash
-# 开发模式
-npm run dev -- --mock --limit 5
+# 评分参数
+export SHITPOST_MAX_RESULTS=3
+export SHITPOST_MIN_SCORE=5.5
 
-# 或构建后运行
-npm run build
-npm start -- --mock --limit 5
+# 发送目标（可选）
+export SHITPOST_CHANNEL=onebot
+export SHITPOST_TARGET=group:123456
 
-# 使用环境变量
-MOCK_MODE=true npm start -- --limit 5
+# reddit-readonly 路径（可选）
+export REDDIT_READONLY_PATH=/path/to/reddit-readonly.mjs
 ```
 
-**开发模式**（使用 tsx）：
+## 触发器
+
+支持通过关键词触发：
 
 ```bash
-npm run dev -- --dry-run --limit 5
+# 测试触发
+npm run trigger "来点弱智内容"
+
+# 触发词包括：弱智、难绷、找屎、shitpost、meme、来点...
 ```
 
-**测试模式**（不推送，仅查看结果）：
-
-```bash
-npm run build
-npm start -- --dry-run --limit 5
-```
-
-**正式运行**：
-
-```bash
-npm start -- --limit 15 --min-score 7
-```
-
-或使用全局命令（如果已发布到 npm）：
-
-```bash
-npx shitpost-curator --limit 15 --min-score 7
-```
-
-## 使用说明
-
-### 命令行参数
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--limit N` | 每个 subreddit 抓取的最大帖子数 | 10 |
-| `--min-score N` | 弱智度最低阈值 (0-10) | 6.0 |
-| `--dry-run` | 测试模式，只显示结果不推送 | false |
-| `--mock` | Mock 模式，使用模拟数据代替真实 API | false |
-
-### 环境变量
-
-| 变量 | 说明 | 示例 |
-|------|------|------|
-| `MOCK_MODE` | 设置为 `true` 启用 Mock 模式 | `MOCK_MODE=true npm start` |
-
-### 目标 Subreddits
-
-默认监控以下版块（可在 `config.json` 中修改）：
-
-- `r/shitposting` - 经典弱智 meme
-- `r/okbuddyretard` - 故意装傻的搞笑内容
-- `r/terriblefacebookmemes` - 糟糕的 Facebook 梗图
-- `r/comedyheaven` - 烂到极致就是好
-- `r/wtf` - 令人无语的内容
-- `r/facepalm` - 让人扶额的内容
-- `r/cringetopia` - 尴尬/脑残内容
-
-### 弱智度评分算法
-
-总分 10 分，基于以下维度：
-
-1. **标题关键词** (0-3分)
-   - 匹配 "wtf", "bruh", "绝了", "离谱", "cpu烧了" 等关键词
-   - 多个问号/感叹号加分
-   - 全大写情绪化标题加分
-
-2. **互动特征** (0-3分)
-   - 高评论 + 中等点赞 = 有争议
-   - 低赞踩比 + 高互动 = 有争议
-   - 评论/点赞比高 = 引发讨论
-
-3. **逻辑悖论** (0-4分)
-   - 特定弱智版块加分
-   - "Nobody: / Me:" 经典 meme 格式
-   - 自相矛盾的表达
-
-## 运行测试
-
-项目包含完整的单元测试：
-
-```bash
-# 运行所有测试
-npm test
-
-# 运行一次（非 watch 模式）
-npm run test:run
-```
-
-## OpenClaw 集成
-
-作为 OpenClaw Skill，可以通过以下方式触发：
-
-### 手动触发
-
-```bash
-kimi "/curate-shitpost"
-```
-
-### 定时任务
-
-在 OpenClaw 配置中添加：
-
-```yaml
-triggers:
-  - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "npx shitpost-curator --limit 15 --min-score 7"
-```
-
-### 作为 Skill 调用
+在 OpenClaw 中配置意图处理：
 
 ```typescript
-import { skill } from 'openclaw-shitposting';
+import { shouldTrigger, handleTrigger } from 'openclaw-shit-finder';
 
-const result = await skill.execute(
-  { workspacePath: '/path/to/project' },
-  { limit: 10, minScore: 7, dryRun: false }
-);
+// 在消息处理器中
+if (shouldTrigger(userMessage)) {
+  const result = await handleTrigger(userMessage);
+  return result.message;
+}
+```
 
-console.log(`Pushed ${result.pushed} posts`);
+## 评分标准
+
+| 维度 | 说明 | 分值 |
+|-----|------|-----|
+| 基础分 | 所有帖子起始分 | 4分 |
+| 关键词 | wtf, bruh, 绝了, 离谱... | +0.8/个 |
+| 标点 | ??? !!! Emoji | +0.5~0.8 |
+| 来源 | 不同板块权重不同 | +1~2 |
+| 互动 | 高点赞、高评论 | +0.3~0.5 |
+
+**阈值**: 5.5分（可配置）
+
+## 输出示例
+
+```
+🎉 今日弱智内容精选 (3 条)
+
+🥇 [8.6分] 🗿🗿🗿
+    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
+    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
+    🖼️ https://i.redd.it/pscau5nx4gng1.jpeg
+    🔗 https://www.reddit.com/r/shitposting/comments/...
+
+🥈 [8.6分] 📡📡📡
+    📍 r/shitposting | 👍 13,620 | 💬 70 | 👤 u/EmojiLord
+    🎯 评分依据: 弱智板块: shitposting · 表情符号 · 高热度
+    🖼️ https://i.redd.it/a92zsutz5ing1.jpeg
+    🔗 https://www.reddit.com/r/shitposting/comments/...
+
+🥉 [8.4分] how does this hapan chat?
+    📍 r/okbuddyretard | 👍 2,551 | 💬 35 | 👤 u/ConfusedGuy
+    🎯 评分依据: 弱智板块: okbuddyretard · 关键词 · 高互动
+    🔗 https://www.reddit.com/r/okbuddyretard/comments/...
+
+📅 3月8日 11:45
 ```
 
 ## 项目结构
 
-```text
+```
 openclaw-shitposting/
-├── src/                         # 源代码目录
-│   ├── index.ts                 # 主入口 & OpenClaw Skill 导出
-│   ├── cli.ts                   # CLI 入口
-│   ├── curator.ts               # 核心业务流程
-│   ├── types/                   # TypeScript 类型定义
-│   │   └── index.ts
-│   ├── reddit/                  # Reddit 模块
-│   │   ├── client.ts            # Reddit API 客户端
-│   │   └── fetcher.ts           # 内容抓取逻辑
-│   ├── judge/                   # 评分模块
-│   │   ├── scorer.ts            # 弱智度评分算法
-│   │   └── history.ts           # 去重管理
-│   ├── telegram/                # Telegram 模块
-│   │   └── client.ts            # Telegram Bot API
-│   └── utils/                   # 工具模块
-│       ├── logger.ts            # 日志工具
-│       └── config.ts            # 配置加载 & 校验
-├── tests/                       # 单元测试
-│   ├── judge.test.ts
-│   ├── history.test.ts
-│   └── config.test.ts
-├── config/                      # 配置文件
-│   ├── config.json             # 主配置（需填写凭证）
-│   └── filters.json            # 过滤规则（关键词等）
-├── data/                        # 数据目录
-│   └── history.json            # 已推送记录（自动生成）
-├── package.json                # Node.js 项目配置
-├── tsconfig.json               # TypeScript 配置
-└── vitest.config.ts            # 测试配置
+├── config/
+│   └── sources.json          # 板块配置
+├── scripts/
+│   ├── pipeline.mjs          # Pipeline CLI
+│   └── trigger.mjs           # 触发器 CLI
+├── src/
+│   ├── index.ts              # Skill 入口
+│   ├── types/                # 类型定义
+│   ├── judge/                # 评分逻辑
+│   └── pipeline/             # Pipeline 模块
+│       ├── fetcher.ts        # 帖子获取
+│       ├── runner.ts         # 流程编排
+│       └── sender.ts         # 消息发送
+├── tests/
+├── SKILL.md                  # 详细文档
+└── README.md
 ```
 
-## 技术栈
+## API 使用
 
-- **运行时**: Node.js 18+
-- **语言**: TypeScript 5.5+
-- **Reddit API**: 原生 `fetch` + OAuth2
-- **Telegram Bot**: `node-telegram-bot-api`
-- **配置校验**: `zod`
-- **测试**: `vitest`
+### 完整 Pipeline
 
-## 开发
+```typescript
+import { runPipeline } from 'openclaw-shit-finder';
 
-### 安装开发依赖
+const result = await runPipeline({
+  maxResults: 3,        // 最多分享几条
+  minScore: 5.5,        // 最低评分阈值
+  dryRun: false,        // 是否试运行
+  channel: 'onebot',    // 频道类型
+  target: 'group:123',  // 目标群组
+});
 
-```bash
-npm install
+console.log(result.message);  // 格式化后的分享内容
 ```
 
-### 开发模式（热重载）
+### 单独获取帖子
 
-```bash
-npm run dev
+```typescript
+import { fetchAllPosts, mergePosts } from 'openclaw-shit-finder';
+
+const results = await fetchAllPosts();
+const posts = mergePosts(results);
 ```
 
-### 构建
+### 评分帖子
 
-```bash
-npm run build
+```typescript
+import { scorePosts } from 'openclaw-shit-finder';
+
+const scored = scorePosts(posts, [
+  { subreddit: 'shitposting', weight: 1.2 },
+  { subreddit: 'okbuddyretard', weight: 1.1 },
+]);
 ```
 
-### 代码检查
+## 设计理念
 
-```bash
-npm run lint
-```
+本 Skill **不写死评分算法**，而是通过启发式规则 + 可配置权重，让系统自动判断什么是弱智内容。
 
-### 运行测试
+优势：
+- **灵活性**: 权重可配置，适应不同口味
+- **可进化**: 修改配置即可调整评分标准
+- **自动化**: 定时或触发执行，无需人工干预
+
+## 相关项目
+
+- [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - Reddit 只读浏览
+- [NapCat](https://napneko.github.io/guide/napcat) - 基于 NTQQ 的 Bot 框架
+- [@kirigaya/openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot) - OpenClaw OneBot 协议适配插件（通过知乎文章了解：https://zhuanlan.zhihu.com/p/2012467385257459750）
+
+## 测试
 
 ```bash
 npm test
 ```
 
-## 注意事项
-
-1. **Reddit API 限制**：100 请求/分钟，日常使用足够
-2. **代理设置**：如果在国内访问 Reddit，可能需要配置代理：
-   ```bash
-   set HTTP_PROXY=http://127.0.0.1:7890
-   set HTTPS_PROXY=http://127.0.0.1:7890
-   npm start
-   ```
-3. **内容安全**：已内置黑名单过滤，但仍建议人工抽查
-
 ## 许可
 
-MIT - 仅供学习娱乐，请遵守各平台 ToS。
+MIT - 仅供学习娱乐。

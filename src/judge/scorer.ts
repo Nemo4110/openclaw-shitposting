@@ -1,244 +1,121 @@
 /**
- * 弱智度评分算法
- * 基于多维度评估 Reddit 内容的"弱智/搞笑/脑残"程度
+ * 弱智度评分器
+ * 
+ * 评分逻辑由调用本 Skill 的大模型根据 SKILL.md 的提示词完成
+ * 本文件只提供数据结构和工具函数
  */
 
-import type { RedditPost, JudgeResult, FilterConfig, JudgeConfig } from '../types/index.js';
-export class ContentJudge {
-  private config: JudgeConfig;
-  private minScore: number;
-  private enKeywords: string[];
-  private zhKeywords: string[];
-  private blacklist: string[];
+import type { RedditPost, JudgeResult, ScoredPost } from '../types/index.js';
 
-  constructor(filters: FilterConfig, config: JudgeConfig) {
-    // filters used to initialize keywords below
-    this.config = config;
-    this.minScore = config.minShitpostScore;
-    this.enKeywords = filters.shitpostKeywords.en.map(kw => kw.toLowerCase());
-    this.zhKeywords = filters.shitpostKeywords.zh;
-    this.blacklist = filters.blacklistKeywords.map(kw => kw.toLowerCase());
-  }
+/** 默认关键词配置 */
+export const DEFAULT_KEYWORDS = {
+  en: [
+    "wtf", "bruh", "yikes", "cringe", "lmao", "lol", "omg",
+    "what", "why", "how", "seriously", "literally", "absolutely",
+    "nobody", "expect", "understand", "confused", "lost"
+  ],
+  zh: [
+    "绝了", "离谱", "大无语", "无语", "cpu烧了", "烧脑",
+    "看不懂", "不明白", "什么鬼", "啥玩意", "懵了", "迷惑",
+    "窒息", "辣眼睛", "裂开", "麻了", "服了", "整不会"
+  ],
+};
 
-  /**
-   * 对单个帖子进行弱智度评分
-   */
-  judge(post: RedditPost): JudgeResult {
-    const reasons: string[] = [];
+/** 默认黑名单 */
+export const DEFAULT_BLACKLIST = [
+  "nsfw", "gore", "death", "kill", "murder", "porn",
+  "politic", "trump", "biden", "election"
+];
 
-    // 1. 黑名单检查
-    const combinedText = `${post.title} ${post.content}`.toLowerCase();
-    for (const blackKw of this.blacklist) {
-      if (combinedText.includes(blackKw)) {
-        return {
-          postId: getShortId(post),
-          titleScore: 0,
-          engagementScore: 0,
-          logicScore: 0,
-          totalScore: 0,
-          isShitpost: false,
-          reasons: [`Blacklisted keyword: ${blackKw}`],
-        };
-      }
-    }
+/** 默认弱智内容源 */
+export const DEFAULT_SOURCES = [
+  "shitposting", "okbuddyretard", "terriblefacebookmemes", 
+  "comedyheaven", "facepalm", "wtf", "cringetopia"
+];
 
-    // 2. 标题关键词评分 (0-3分)
-    const titleScore = this.calculateTitleScore(post.title);
-    if (titleScore > 0) {
-      reasons.push(`Title keyword score: ${titleScore.toFixed(1)}`);
-    }
-
-    // 3. 互动特征评分 (0-3分)
-    const engagementScore = this.calculateEngagementScore(post);
-    if (engagementScore > 0) {
-      reasons.push(`Engagement score: ${engagementScore.toFixed(1)}`);
-    }
-
-    // 4. 逻辑悖论评分 (0-4分)
-    const logicScore = this.calculateLogicScore(post);
-    if (logicScore > 0) {
-      reasons.push(`Logic paradox score: ${logicScore.toFixed(1)}`);
-    }
-
-    // 计算总分
-    const totalScore = titleScore + engagementScore + logicScore;
-    const isShitpost = totalScore >= this.minScore;
-
-    // 添加通过/失败理由
-    if (isShitpost) {
-      reasons.push(`PASS: shitpost score ${totalScore.toFixed(1)} >= ${this.minScore}`);
-    } else {
-      reasons.push(`FAIL: shitpost score ${totalScore.toFixed(1)} < ${this.minScore}`);
-    }
-
-    return {
-      postId: getShortId(post),
-      titleScore,
-      engagementScore,
-      logicScore,
-      totalScore,
-      isShitpost,
-      reasons,
-    };
-  }
-
-  /**
-   * 批量评分
-   */
-  judgeBatch(posts: RedditPost[]): JudgeResult[] {
-    return posts.map(post => this.judge(post));
-  }
-
-  /**
-   * 根据评分结果过滤出弱智内容
-   */
-  filterShitposts(posts: RedditPost[], results: JudgeResult[]): Array<[RedditPost, JudgeResult]> {
-    const shitposts: Array<[RedditPost, JudgeResult]> = [];
-    
-    for (let i = 0; i < posts.length; i++) {
-      if (results[i].isShitpost) {
-        shitposts.push([posts[i], results[i]]);
-      }
-    }
-
-    // 按分数排序
-    shitposts.sort((a, b) => b[1].totalScore - a[1].totalScore);
-
-    // 限制数量
-    const maxPosts = this.config.maxPostsPerRun;
-    return shitposts.slice(0, maxPosts);
-  }
-
-  /**
-   * 基于标题关键词计算分数 (0-3分)
-   */
-  private calculateTitleScore(title: string): number {
-    let score = 0;
-    const titleLower = title.toLowerCase();
-
-    // 英文关键词匹配
-    for (const kw of this.enKeywords) {
-      if (titleLower.includes(kw)) {
-        score += 0.5;
-      }
-    }
-
-    // 中文关键词匹配
-    for (const kw of this.zhKeywords) {
-      if (title.includes(kw)) {
-        score += 0.5;
-      }
-    }
-
-    // 标点符号特征（多个问号/感叹号通常表示弱智/夸张）
-    const qCount = (title.match(/[?？]/g) || []).length;
-    const exCount = (title.match(/[!！]/g) || []).length;
-    if (qCount >= 2 || exCount >= 2 || (qCount + exCount) >= 3) {
-      score += 1.0;
-    }
-
-    // 全大写（通常表示情绪化/夸张）
-    const alphaChars = [...title].filter(c => /[a-zA-Z]/.test(c));
-    if (alphaChars.length > 0) {
-      const upperCount = alphaChars.filter(c => c === c.toUpperCase()).length;
-      if (upperCount / alphaChars.length > 0.7) {
-        score += 0.5;
-      }
-    }
-
-    return Math.min(score, 3.0);
-  }
-
-  /**
-   * 基于互动特征计算分数 (0-3分)
-   */
-  private calculateEngagementScore(post: RedditPost): number {
-    let score = 0;
-
-    // 高评论数 + 中等点赞 = 争议性/讨论度高的内容
-    if (post.commentCount > 100 && post.upvotes < 5000) {
-      score += 1.0;
-    } else if (post.commentCount > 50) {
-      score += 0.5;
-    }
-
-    // 低赞踩比 + 高互动 = 有争议的内容
-    if (post.upvoteRatio < 0.7 && post.commentCount > 30) {
-      score += 1.5;
-    } else if (post.upvoteRatio < 0.8 && post.commentCount > 20) {
-      score += 0.5;
-    }
-
-    // 评论/点赞比高 = 引发讨论的内容
-    if (post.upvotes > 0) {
-      const ratio = post.commentCount / post.upvotes;
-      if (ratio > 0.1) {
-        score += 1.0;
-      } else if (ratio > 0.05) {
-        score += 0.5;
-      }
-    }
-
-    return Math.min(score, 3.0);
-  }
-
-  /**
-   * 基于内容逻辑悖论计算分数 (0-4分)
-   */
-  private calculateLogicScore(post: RedditPost): number {
-    let score = 0;
-    const content = `${post.title} ${post.content}`.toLowerCase();
-
-    // 自相矛盾的表达
-    const contradictions: Array<[string, string]> = [
-      ['not', 'but'],
-      ['no', 'yes'],
-      ["can't", 'did'],
-      ['不会', '会'],
-      ['不是', '是'],
-      ['没有', '有'],
-    ];
-    
-    for (const [a, b] of contradictions) {
-      if (content.includes(a) && content.includes(b)) {
-        score += 0.5;
-      }
-    }
-
-    // 荒谬的夸张表达
-    const absurdPatterns = [
-      /\d{3,}%/,  // 超过100%的百分比
-      /never\s+\w+\s+again/i,
-      /always\s+\w+/i,
-      /每个人|everyone|everybody/i,
-      /没有人|nobody|no one/i,
-      /永远|forever|always/i,
-    ];
-    
-    for (const pattern of absurdPatterns) {
-      if (pattern.test(content)) {
-        score += 0.5;
-      }
-    }
-
-    // 特定 subreddit 加分（这些版块本身就是弱智内容聚集地）
-    const shitpostSubs = ['shitposting', 'okbuddyretard', 'terriblefacebookmemes', 'comedyheaven'];
-    if (shitpostSubs.some(sub => post.subreddit.toLowerCase().includes(sub))) {
-      score += 1.0;
-    }
-
-    // "Nobody: / Me:" 格式（经典的弱智meme格式）
-    if (/no(body| one):/i.test(content) || content.includes('没有人：')) {
-      score += 1.0;
-    }
-
-    return Math.min(score, 4.0);
-  }
+/**
+ * 检查帖子是否在黑名单中
+ */
+export function isBlacklisted(post: RedditPost, blacklist: string[] = DEFAULT_BLACKLIST): boolean {
+  const text = `${post.title} ${post.selftext_snippet ?? ''}`.toLowerCase();
+  return blacklist.some(kw => text.includes(kw.toLowerCase()));
 }
 
 /**
- * 获取帖子的短 ID
+ * 格式化帖子为消息文本
  */
-function getShortId(post: RedditPost): string {
-  return `reddit_${post.id}`;
+export function formatPostMessage(post: RedditPost, score: JudgeResult): string {
+  const lines: string[] = [
+    `📌 ${post.title}`,
+    ``,
+    `🏷️ r/${post.subreddit} | 👍 ${post.score} | 💬 ${post.num_comments}`,
+    `🔗 ${post.permalink}`,
+    `🎯 弱智度: ${score.totalScore.toFixed(1)}/10`,
+  ];
+
+  if (score.reasons.length > 0) {
+    lines.push(`📊 ${score.reasons.slice(0, 2).join(', ')}`);
+  }
+
+  if (post.selftext_snippet) {
+    const snippet = post.selftext_snippet.slice(0, 100);
+    lines.push(`📝 ${snippet}${post.selftext_snippet.length > 100 ? '...' : ''}`);
+  }
+
+  if (post.url && !post.url.includes('reddit.com')) {
+    lines.push(`🖼️ ${post.url}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * 生成摘要文本
+ */
+export function generateSummary(results: ScoredPost[]): string {
+  if (results.length === 0) {
+    return '🤷 没有找到符合条件的弱智内容';
+  }
+
+  const lines: string[] = [
+    `🎉 今日弱智内容精选 (${results.length} 条)`,
+    ``,
+  ];
+
+  results.forEach((item, index) => {
+    const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•';
+    lines.push(`${emoji} [${item.score.totalScore.toFixed(1)}] ${item.post.title.slice(0, 50)}${item.post.title.length > 50 ? '...' : ''}`);
+  });
+
+  lines.push('');
+  lines.push('👇 详细内容');
+
+  return lines.join('\n');
+}
+
+/**
+ * 简单的启发式预评分（用于快速过滤，非必需）
+ * 真正的评分由大模型根据 SKILL.md 的提示词完成
+ */
+export function quickPreScore(post: RedditPost): number {
+  let score = 0;
+  const title = post.title.toLowerCase();
+  
+  // 关键词匹配
+  for (const kw of DEFAULT_KEYWORDS.en) {
+    if (title.includes(kw)) score += 0.5;
+  }
+  for (const kw of DEFAULT_KEYWORDS.zh) {
+    if (post.title.includes(kw)) score += 0.5;
+  }
+  
+  // 来源加分
+  for (const src of DEFAULT_SOURCES) {
+    if (post.subreddit.toLowerCase().includes(src)) {
+      score += 1;
+      break;
+    }
+  }
+  
+  return Math.min(score, 3);
 }

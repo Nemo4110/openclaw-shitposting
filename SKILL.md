@@ -1,148 +1,283 @@
-# Shitpost Curator Skill
+# 找屎 Skill (Shit Finder)
 
-## Description
+评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子。
 
-自动从 Reddit 采集弱智/脑残/搞笑内容，经 AI 筛选后推送到 Telegram 群的 OpenClaw Skill。
+## 使用场景
 
-## Features
+- 用户分享了一堆 Reddit 帖子，需要筛选出最弱智的内容
+- 配合 reddit-readonly Skill 使用，对其输出进行评分筛选
+- 批量评估内容质量，找出值得分享的"宝藏"
+- **自动从多个板块获取并分享内容（Pipeline 模式）**
 
-- 从 Reddit 热门弱智版块抓取内容（r/shitposting, r/okbuddyretard 等）
-- 智能"弱智度"评分算法（关键词匹配 + 互动特征 + 逻辑悖论检测）
-- 自动去重（基于 URL + 内容 hash）
-- Telegram Bot 推送
-- 支持定时任务和手动触发
+## 两种使用模式
 
-## Tools
+### 1. Library 模式 - 评分已有帖子
 
-- `node` >= 18.0.0
-- `npm`
+接收 Reddit 帖子列表（来自 reddit-readonly Skill 的输出）进行评分：
 
-## Setup
+```typescript
+import { skill, formatResults } from 'openclaw-shit-finder';
 
-### 1. 安装依赖
+const posts = [/* Reddit 帖子列表 */];
+const result = await skill.execute(
+  { workspacePath: '/path/to/project' },
+  { posts, minScore: 6, limit: 5 }
+);
+```
+
+### 2. Pipeline 模式 - 自动获取并分享
+
+自动从配置的板块获取帖子、评分并推送到 channels：
 
 ```bash
-npm install
+# 试运行（不发送）
+npm run pipeline:dry
+
+# 实际运行并发送
+npm run pipeline
+
+# 指定频道发送
+SHITPOST_CHANNEL=onebot SHITPOST_TARGET=group:123456 npm run pipeline
 ```
 
-或从 npm 安装：
+## Pipeline 配置
+
+`config/sources.json`：
+
+```json
+{
+  "sources": [
+    {
+      "subreddit": "shitposting",
+      "name": "弱智",
+      "weight": 1.2,
+      "enabled": true
+    },
+    {
+      "subreddit": "okbuddyretard", 
+      "name": "难绷",
+      "weight": 1.1,
+      "enabled": true
+    },
+    {
+      "subreddit": "comedyheaven",
+      "name": "有趣", 
+      "weight": 1.0,
+      "enabled": true
+    }
+  ],
+  "fetch": {
+    "timeRange": "week",
+    "postsPerSource": 15,
+    "maxAgeDays": 7
+  },
+  "judge": {
+    "minScore": 5.5,
+    "maxResults": 3,
+    "autoShare": true
+  }
+}
+```
+
+## 输入格式
+
+```typescript
+interface RedditPost {
+  id: string;
+  subreddit: string;
+  title: string;
+  score: number;           // 点赞数
+  num_comments: number;    // 评论数
+  permalink: string;       // Reddit 链接
+  url?: string;            // 图片/视频链接
+  selftext_snippet?: string;  // 文本摘要
+}
+```
+
+## 评分标准
+
+对每个帖子进行弱智度评分（0-10分），基于以下维度：
+
+### 1. 基础分（4分）
+所有帖子起始4分，确保热门内容有机会通过
+
+### 2. 标题关键词（0-3分）
+- 包含弱智关键词 +0.8分/个：
+  - 英文：wtf, bruh, yikes, cringe, lmao, omg, what, why, seriously, confused...
+  - 中文：绝了, 离谱, 大无语, 无语, cpu烧了, 看不懂, 什么鬼, 懵了...
+
+### 3. 标点符号特征（0-0.8分）
+- 多问号/感叹号（如??? !!!）+0.8分
+- Emoji 表情 +0.5分
+
+### 4. 来源加分（1-2分）
+- 弱智板块（shitposting, okbuddyretard）+2分
+- 搞笑板块（comedyheaven, terriblefacebookmemes）+1.5分
+- 其他板块（facepalm, wtf）+1分
+
+### 5. 互动特征（0-0.8分）
+- 高点赞（>1000）+0.5分
+- 高评论（>50）+0.3分
+- 争议性（评论>100 且 点赞<5000）+0.5分
+
+### 黑名单过滤
+以下内容直接排除（0分）：
+- 包含敏感词：nsfw, gore, death, kill, porn, politic, trump, biden...
+- 过于严肃的政治/暴力内容
+
+## 输出格式
+
+### Library 模式结果
+
+```typescript
+interface ShitFinderResult {
+  inputCount: number;      // 输入帖子数量
+  passedCount: number;     // 通过黑名单检查的数量
+  selectedCount: number;   // 筛选出的弱智内容数量
+  results: Array<{
+    post: RedditPost;      // 原始帖子
+    score: {
+      totalScore: number;  // 总分 (0-10)
+      isShitpost: boolean; // 是否 >= 阈值
+      reasons: string[];   // 评分理由
+    };
+    formattedMessage: string;  // 格式化消息
+  }>;
+  summaryText: string;     // 摘要文本
+}
+```
+
+### Pipeline 模式结果
+
+```typescript
+interface PipelineResult {
+  success: boolean;
+  fetched: number;         // 获取帖子数
+  scored: number;          // 评分数
+  selected: number;        // 选中数
+  posts: ScoredPost[];     // 帖子详情
+  message: string;         // 格式化消息
+  dryRun: boolean;         // 是否试运行
+  sent?: number;           // 发送成功数
+  sendError?: string;      // 发送错误
+}
+```
+
+## 格式化消息模板
+
+每条帖子格式化为：
+
+```
+🎉 今日弱智内容精选 (3 条)
+
+🥇 [8.6分] 🗿🗿🗿
+    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
+    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
+    🖼️ https://i.redd.it/...
+    🔗 https://www.reddit.com/r/shitposting/comments/...
+
+🥈 [8.6分] 📡📡📡
+    📍 r/shitposting | 👍 13,620 | 💬 70 | 👤 u/EmojiLord
+    🎯 评分依据: 弱智板块: shitposting · 表情符号 · 高热度
+    🖼️ https://i.redd.it/...
+    🔗 https://www.reddit.com/r/shitposting/comments/...
+
+🥉 [8.4分] how does this hapan chat?
+    📍 r/okbuddyretard | 👍 2,551 | 💬 35 | 👤 u/ConfusedGuy
+    🎯 评分依据: 弱智板块: okbuddyretard · 关键词 · 高互动
+    🔗 https://www.reddit.com/r/okbuddyretard/comments/...
+
+📅 3月8日 11:45
+```
+
+## 使用示例
+
+### 基础评分用法
+
+```typescript
+import { skill, formatResults } from 'openclaw-shit-finder';
+
+// reddit-readonly 获取的帖子
+const posts = [
+  {
+    id: "abc123",
+    subreddit: "shitposting",
+    title: "wtf is this!!!",
+    score: 1500,
+    num_comments: 200,
+    permalink: "https://reddit.com/r/...",
+    url: "https://i.redd.it/..."
+  }
+];
+
+const result = await skill.execute(
+  { workspacePath: '/path/to/project' },
+  { posts, minScore: 6, limit: 5 }
+);
+
+// 输出格式化消息
+console.log(result.summaryText);
+result.results.forEach(item => {
+  console.log(item.formattedMessage);
+});
+```
+
+### Pipeline 自动获取
+
+```typescript
+import { runPipeline } from 'openclaw-shit-finder';
+
+// 自动获取并分享
+const result = await runPipeline({
+  maxResults: 3,
+  minScore: 5.5,
+  dryRun: false,
+  channel: 'onebot',
+  target: 'group:123456',
+});
+
+console.log(`获取: ${result.fetched}, 选中: ${result.selected}, 发送: ${result.sent}`);
+```
+
+### CLI 管道模式
 
 ```bash
-npm install -g shitpost-curator
+# 配合 reddit-readonly 使用
+reddit-readonly posts shitposting --limit 20 | node dist/index.js
+
+# Pipeline 模式
+npm run pipeline:dry    # 试运行
+npm run pipeline        # 实际发送
 ```
 
-### 2. 配置 Reddit API
+## 触发器配置
 
-访问 https://www.reddit.com/prefs/apps 创建应用，获取：
-- `client_id`
-- `client_secret`
+在 OpenClaw 中使用意图触发：
 
-### 3. 配置 Telegram Bot
-
-- 在 Telegram 中找 @BotFather 创建 Bot，获取 `bot_token`
-- 获取目标群的 `chat_id`
-
-### 4. 填写配置
-
-编辑 `config/config.json`，填入上述凭证。
-
-## Usage
-
-### 手动执行
-
-```bash
-npm start -- --limit 10 --min-score 7
+```typescript
+// 当用户发送 "来点弱智内容" 等关键词时触发
+if (message.includes('弱智') || message.includes('难绷') || message.includes('找屎')) {
+  const result = await runPipeline({ maxResults: 3, dryRun: false });
+  return result.message;
+}
 ```
 
-或使用安装后的命令：
+## 环境变量
 
-```bash
-shitpost-curator --limit 10 --min-score 7
-```
+| 变量 | 说明 | 默认值 |
+|-----|------|--------|
+| SHITPOST_MAX_RESULTS | 最大分享数量 | 3 |
+| SHITPOST_MIN_SCORE | 最低评分阈值 | 5.5 |
+| SHITPOST_CHANNEL | 目标频道类型 | - |
+| SHITPOST_TARGET | 目标用户/群组 | - |
+| REDDIT_READONLY_PATH | reddit-readonly 脚本路径 | - |
 
-### 参数说明
+## 相关项目
 
-- `--limit`: 每个 subreddit 抓取的最大帖子数（默认 10）
-- `--min-score`: 弱智度最低阈值（0-10，默认 7）
-- `--dry-run`: 测试模式，只显示结果不推送
+- [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - 获取 Reddit 内容
+- [NapCat](https://napneko.github.io/guide/napcat) - 基于 NTQQ 的 Bot 框架
+- [@kirigaya/openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot) - OpenClaw OneBot 协议适配插件
 
-### 定时任务（OpenClaw Schedule）
+## 版本
 
-```yaml
-triggers:
-  - schedule: "0 */3 * * *"  # 每 3 小时执行一次
-    command: "npx shitpost-curator --limit 15 --min-score 7"
-```
-
-### 运行测试
-
-```bash
-npm test
-```
-
-## Directory Structure
-
-```
-openclaw-shitposting/
-├── src/                         # 源代码目录
-│   ├── index.ts                 # OpenClaw Skill 入口
-│   ├── cli.ts                   # CLI 入口
-│   ├── curator.ts               # 核心业务流程
-│   ├── types/                   # TypeScript 类型定义
-│   ├── reddit/                  # Reddit 模块
-│   ├── judge/                   # 评分模块
-│   ├── telegram/                # Telegram 模块
-│   └── utils/                   # 工具模块
-├── tests/                       # 单元测试
-├── config/
-│   ├── config.json             # 主配置
-│   └── filters.json            # 过滤规则
-├── data/                        # 数据目录
-├── package.json                # Node.js 配置
-├── tsconfig.json               # TypeScript 配置
-└── README.md                   # 使用说明
-```
-
-## Target Subreddits
-
-默认监控以下版块：
-
-| Subreddit | 描述 |
-|-----------|------|
-| r/shitposting | 经典弱智meme |
-| r/okbuddyretard | 故意装傻的搞笑内容 |
-| r/terriblefacebookmemes | 糟糕的Facebook梗图 |
-| r/comedyheaven | 烂到极致就是好 |
-| r/wtf | 令人无语的内容 |
-
-可在 `config.json` 中自定义。
-
-## Scoring Algorithm
-
-弱智度评分（0-10分）基于以下维度：
-
-1. **关键词匹配**（权重 30%）
-   - 中文："绝了", "离谱", "大无语", "cpu烧了"
-   - 英文："wtf", "bruh", "yikes", "cringe"
-
-2. **社区互动特征**（权重 30%）
-   - 高评论数 + 中等点赞 = +3分
-   - 低赞踩比（<0.7）+ 高互动 = +2分
-
-3. **逻辑悖论检测**（权重 40%）
-   - 特定弱智版块加分
-   - "Nobody: / Me:" 经典格式
-   - 自相矛盾的表达
-
-## Logging
-
-使用带文件路径和行号的日志格式：
-
-```
-2024-01-15 10:30:45 INFO  [reddit] Fetched 10 posts from r/shitposting
-2024-01-15 10:30:46 INFO  [judge] Filtered new posts: 8/10
-```
-
-## License
-
-MIT - 仅供学习娱乐，请遵守各平台 ToS。
+2.1.0 - 新增 Pipeline 自动获取与分享功能

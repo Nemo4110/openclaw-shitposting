@@ -1,85 +1,147 @@
 #!/usr/bin/env node
 /**
- * OpenClaw Skill 入口
- * 同时作为 CLI 工具和 OpenClaw Skill 使用
+ * 找屎 Skill (Shit Finder)
+ * 
+ * 评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子。
+ * 
+ * 评分逻辑由调用本 Skill 的大模型根据 SKILL.md 的提示词完成。
  */
 
-import { ShitpostCurator, type CuratorResult } from './curator.js';
-import { loadConfig, validateConfig } from './utils/config.js';
-import { createLogger } from './utils/logger.js';
-import type { RunOptions } from './types/index.js';
+import type { 
+  RedditPost, 
+  ScoredPost,
+  ShitFinderResult, 
+  SkillArgs, 
+  SkillContext, 
+  Skill 
+} from './types/index.js';
 
-const logger = createLogger('index');
+import { 
+  isBlacklisted, 
+  formatPostMessage, 
+  generateSummary,
+} from './judge/scorer.js';
 
-export interface SkillContext {
-  workspacePath: string;
-}
-
-export interface SkillArgs {
-  limit?: number;
-  minScore?: number;
-  dryRun?: boolean;
-  mockMode?: boolean;
-}
-
-export interface Skill {
-  name: string;
-  description: string;
-  version: string;
-  execute(context: SkillContext, args: SkillArgs): Promise<CuratorResult>;
-}
-
-/**
- * OpenClaw Skill 定义
- */
 export const skill: Skill = {
-  name: 'shitpost-curator',
-  description: '自动从 Reddit 采集弱智内容并推送到 Telegram',
-  version: '1.0.0',
+  name: 'shit-finder',
+  description: '评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子',
+  version: '2.0.0',
 
-  async execute(context: SkillContext, args: SkillArgs): Promise<CuratorResult> {
-    const mockMode = args.mockMode ?? process.env.MOCK_MODE === 'true';
-    
-    if (mockMode) {
-      logger.info('🎭 MOCK MODE ENABLED - Using mock data instead of real APIs');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async execute(_context: SkillContext, args: SkillArgs): Promise<ShitFinderResult> {
+    const { posts } = args;
+    // 这些参数供大模型参考，实际评分由大模型根据 SKILL.md 完成
+    // const minScore = args.minScore ?? 6;
+    // const limit = args.limit ?? 10;
+
+    if (!posts || posts.length === 0) {
+      return {
+        inputCount: 0,
+        passedCount: 0,
+        selectedCount: 0,
+        results: [],
+        summaryText: '🤷 没有输入内容',
+      };
     }
 
-    const options: RunOptions = {
-      limit: args.limit ?? 10,
-      minScore: args.minScore ?? 6,
-      dryRun: args.dryRun ?? false,
+    // 1. 黑名单过滤
+    const passedPosts = posts.filter(p => !isBlacklisted(p));
+
+    // 2. 返回数据结构，由大模型填充评分
+    const results: ScoredPost[] = passedPosts.map(post => ({
+      post,
+      score: {
+        totalScore: 0,  // 由大模型根据 SKILL.md 评分
+        isShitpost: false,
+        reasons: [],
+      },
+    }));
+
+    return {
+      inputCount: posts.length,
+      passedCount: passedPosts.length,
+      selectedCount: 0,  // 由大模型根据 minScore 筛选后更新
+      results,
     };
-
-    const { config, filters } = loadConfig(context.workspacePath);
-
-    // mock 模式下跳过配置校验
-    if (!mockMode && !options.dryRun && !validateConfig(config, options.dryRun)) {
-      throw new Error('Invalid configuration');
-    }
-
-    const curator = new ShitpostCurator(context.workspacePath, config, filters, mockMode);
-    return await curator.run(options);
   },
 };
 
 /**
- * 直接运行（作为 CLI）
+ * 格式化已评分的帖子列表
  */
-async function main(): Promise<void> {
-  // 动态导入 CLI 模块，避免在作为 Skill 被导入时执行 CLI 逻辑
-  await import('./cli.js');
+export function formatResults(
+  scoredPosts: ScoredPost[], 
+  minScore: number = 6
+): ShitFinderResult {
+  // 过滤并排序
+  const filtered = scoredPosts
+    .filter(item => item.score.isShitpost && item.score.totalScore >= minScore)
+    .sort((a, b) => b.score.totalScore - a.score.totalScore);
+
+  // 生成格式化消息
+  const results = filtered.map(item => ({
+    ...item,
+    formattedMessage: formatPostMessage(item.post, item.score),
+  }));
+
+  return {
+    inputCount: scoredPosts.length,
+    passedCount: scoredPosts.length,
+    selectedCount: results.length,
+    results,
+    summaryText: generateSummary(results),
+  };
 }
 
-// 如果是直接运行（不是被导入），则执行 main
-if (import.meta.url === `file://${process.argv[1]}` ||
-    import.meta.url === `file://${process.argv[1]}.exe`) {
-  main().catch((error) => {
-    logger.error(`Unhandled error: ${error}`);
-    process.exit(1);
-  });
+/**
+ * 解析 reddit-readonly 的输出
+ */
+export function parseRedditReadonlyOutput(jsonString: string): RedditPost[] {
+  try {
+    const parsed = JSON.parse(jsonString);
+    if (parsed.ok && parsed.data) {
+      return parsed.data.posts ?? parsed.data.results ?? [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
 }
 
-// 导出类型和类供外部使用
-export { ShitpostCurator, type CuratorResult } from './curator.js';
-export { loadConfig, validateConfig } from './utils/config.js';
+// 导出类型和工具
 export * from './types/index.js';
+export { 
+  isBlacklisted, 
+  formatPostMessage, 
+  generateSummary,
+  quickPreScore,
+  DEFAULT_BLACKLIST,
+  DEFAULT_KEYWORDS,
+  DEFAULT_SOURCES 
+} from './judge/scorer.js';
+
+// 导出 Pipeline 功能
+export {
+  loadConfig as loadFetchConfig,
+  fetchAllPosts,
+  mergePosts,
+  enrichPostsWithWeights,
+  calculateCompositeScore,
+  type FetchResult,
+} from './pipeline/fetcher.js';
+
+export {
+  loadPipelineConfig,
+  heuristicScore,
+  scorePosts,
+  selectTopPosts,
+  formatShareMessage,
+  runPipeline,
+  main as runPipelineMain,
+} from './pipeline/runner.js';
+
+export {
+  sendFormattedMessage,
+  sendPosts,
+  type SendOptions,
+} from './pipeline/sender.js';
