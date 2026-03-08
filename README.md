@@ -2,149 +2,233 @@
 
 OpenClaw Skill - 专注于 Reddit 内容的"弱智度"评分，帮你找到最脑残/搞笑的帖子。
 
-## 设计理念
+## 两种使用模式
 
-本 Skill **不写死评分算法**，而是通过 `SKILL.md` 中的提示词，**让大模型自己判断**什么是弱智内容。
+### 1. Library 模式 - 评分已有帖子
+分析已有的 Reddit 帖子列表，评分并筛选。
+
+### 2. Pipeline 模式 - 自动获取并分享 ⭐ 新功能
+自动从多个板块获取帖子、评分，并推送到配置的 channels。
+
+## 快速开始
+
+```bash
+# 安装依赖
+npm install
+
+# 构建
+npm run build
+
+# 测试运行（不发送消息）
+npm run pipeline:dry
+
+# 实际运行并发送
+npm run pipeline
+```
+
+## Pipeline 工作流
 
 ```
-┌─────────────────┐     ┌──────────────────────┐     ┌─────────────┐
-│ reddit-readonly │────▶│   大模型（OpenClaw）  │────▶│   qqbot     │
-│   (获取数据)     │     │  根据 SKILL.md 评分   │     │ (推送消息)   │
-└─────────────────┘     └──────────────────────┘     └─────────────┘
-                              ↓
-                    本 Skill 提供：
-                    - 类型定义
-                    - 格式化工具
-                    - 黑名单过滤
+┌──────────────────┐
+│  配置板块列表     │ config/sources.json
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│  reddit-readonly │ 获取 r/shitposting, r/okbuddyretard 等
+│   (获取数据)      │
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│     评分引擎      │ 启发式评分 (0-10分)
+│                  │ 黑名单过滤
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│    Top N 排序     │ 选出最值得分享的 3 条
+└────────┬─────────┘
+         ↓
+┌──────────────────┐
+│    消息发送器     │ 推送到配置的 channels
+└──────────────────┘
 ```
 
-## 优势
+## 配置
 
-- **灵活性**: 大模型比硬编码规则更懂"弱智"
-- **可进化**: 修改 SKILL.md 即可调整评分标准
-- **轻量级**: 代码量极少，主要靠提示词
+编辑 `config/sources.json`：
 
-## 使用方式
+```json
+{
+  "sources": [
+    { "subreddit": "shitposting", "name": "弱智", "weight": 1.2 },
+    { "subreddit": "okbuddyretard", "name": "难绷", "weight": 1.1 },
+    { "subreddit": "comedyheaven", "name": "有趣", "weight": 1.0 },
+    { "subreddit": "facepalm", "name": "无语", "weight": 0.9 },
+    { "subreddit": "terriblefacebookmemes", "name": "老梗", "weight": 0.8 },
+    { "subreddit": "wtf", "name": "震惊", "weight": 1.0 }
+  ],
+  "fetch": {
+    "timeRange": "week",
+    "postsPerSource": 15,
+    "maxAgeDays": 7
+  },
+  "judge": {
+    "minScore": 5.5,
+    "maxResults": 3,
+    "autoShare": true
+  }
+}
+```
 
-### 作为 OpenClaw Skill
+## 环境变量
+
+```bash
+# 评分参数
+export SHITPOST_MAX_RESULTS=3
+export SHITPOST_MIN_SCORE=5.5
+
+# 发送目标（可选）
+export SHITPOST_CHANNEL=onebot
+export SHITPOST_TARGET=group:123456
+
+# reddit-readonly 路径（可选）
+export REDDIT_READONLY_PATH=/path/to/reddit-readonly.mjs
+```
+
+## 触发器
+
+支持通过关键词触发：
+
+```bash
+# 测试触发
+npm run trigger "来点弱智内容"
+
+# 触发词包括：弱智、难绷、找屎、shitpost、meme、来点...
+```
+
+在 OpenClaw 中配置意图处理：
 
 ```typescript
-import { skill, formatResults } from 'openclaw-shit-finder';
+import { shouldTrigger, handleTrigger } from 'openclaw-shit-finder';
 
-// 1. 获取 Reddit 数据
-const redditOutput = await exec('reddit-readonly posts shitposting --limit 20');
-const posts = JSON.parse(redditOutput).data.posts;
-
-// 2. 获取基础数据结构
-const baseResult = await skill.execute(
-  { workspacePath: '/path/to/project' },
-  { posts, minScore: 6, limit: 5 }
-);
-
-// 3. 让大模型根据 SKILL.md 评分
-const scoredPosts = baseResult.results.map(item => ({
-  post: item.post,
-  score: /* 大模型根据 SKILL.md 评分 */
-}));
-
-// 4. 格式化输出
-const finalResult = formatResults(scoredPosts, 6);
-
-// 5. 发送给 qqbot
-console.log(finalResult.summaryText);
-finalResult.results.forEach(item => {
-  console.log(item.formattedMessage);
-});
-```
-
-### 直接使用工具函数
-
-```typescript
-import { isBlacklisted, formatPostMessage, parseRedditReadonlyOutput } from 'openclaw-shit-finder';
-
-// 解析 reddit-readonly 输出
-const posts = parseRedditReadonlyOutput(jsonString);
-
-// 过滤黑名单
-const cleanPosts = posts.filter(p => !isBlacklisted(p));
-
-// 格式化消息
-const message = formatPostMessage(post, { totalScore: 8.5, isShitpost: true, reasons: [] });
+// 在消息处理器中
+if (shouldTrigger(userMessage)) {
+  const result = await handleTrigger(userMessage);
+  return result.message;
+}
 ```
 
 ## 评分标准
 
-评分逻辑定义在 `SKILL.md` 中，包括：
+| 维度 | 说明 | 分值 |
+|-----|------|-----|
+| 基础分 | 所有帖子起始分 | 4分 |
+| 关键词 | wtf, bruh, 绝了, 离谱... | +0.8/个 |
+| 标点 | ??? !!! Emoji | +0.5~0.8 |
+| 来源 | 不同板块权重不同 | +1~2 |
+| 互动 | 高点赞、高评论 | +0.3~0.5 |
 
-### 1. 标题关键词（0-3分）
-- 弱智关键词匹配
-- 标点符号特征（多问号/感叹号）
-- 情绪化表达（全大写）
+**阈值**: 5.5分（可配置）
 
-### 2. 互动特征（0-3分）
-- 高评论 + 中等点赞
-- 评论/点赞比
-- 热门争议
+## 输出示例
 
-### 3. 逻辑悖论（0-4分）
-- 自相矛盾表达
-- 荒谬夸张
-- 经典 meme 格式
+```
+🎉 今日弱智内容精选 (3 条)
 
-### 黑名单
-自动过滤敏感内容。
+🥇 [8.6分] 🗿🗿🗿
+    r/shitposting | 👍 20819 | 💬 97
+    🔗 https://www.reddit.com/r/shitposting/comments/1rmhlk9/_/
+    🖼️ https://i.redd.it/pscau5nx4gng1.jpeg
+
+🥈 [8.6分] 📡📡📡
+    r/shitposting | 👍 13620 | 💬 70
+    🔗 https://www.reddit.com/r/shitposting/comments/1rmsl7u/_/
+    🖼️ https://i.redd.it/a92zsutz5ing1.jpeg
+
+🥉 [8.4分] how does this hapan chat?
+    r/okbuddyretard | 👍 2551 | 💬 35
+    🔗 https://www.reddit.com/r/okbuddyretard/comments/1rm3it1/...
+    🖼️ https://i.redd.it/ntr8ez8hlcng1.jpeg
+```
 
 ## 项目结构
 
 ```
-openclaw-shit-finder/
-├── SKILL.md               # 评分提示词（核心）
-├── README.md              # 使用说明
+openclaw-shitposting/
+├── config/
+│   └── sources.json          # 板块配置
+├── scripts/
+│   ├── pipeline.mjs          # Pipeline CLI
+│   └── trigger.mjs           # 触发器 CLI
 ├── src/
-│   ├── index.ts           # Skill 入口
-│   ├── types/             # 类型定义
-│   └── judge/
-│       └── scorer.ts      # 工具函数（非核心逻辑）
-├── tests/                 # 单元测试
-└── package.json
+│   ├── index.ts              # Skill 入口
+│   ├── types/                # 类型定义
+│   ├── judge/                # 评分逻辑
+│   └── pipeline/             # Pipeline 模块
+│       ├── fetcher.ts        # 帖子获取
+│       ├── runner.ts         # 流程编排
+│       └── sender.ts         # 消息发送
+├── tests/
+├── SKILL.md                  # 详细文档
+└── README.md
 ```
 
-## 关键文件
+## API 使用
 
-### SKILL.md
-包含完整的评分提示词，大模型根据此文件评估内容。
+### 完整 Pipeline
 
-### src/types/index.ts
-类型定义，确保数据格式一致。
+```typescript
+import { runPipeline } from 'openclaw-shit-finder';
 
-### src/index.ts
-- `skill.execute()` - Skill 入口
-- `formatResults()` - 格式化评分结果
-- `parseRedditReadonlyOutput()` - 解析输入
+const result = await runPipeline({
+  maxResults: 3,        // 最多分享几条
+  minScore: 5.5,        // 最低评分阈值
+  dryRun: false,        // 是否试运行
+  channel: 'onebot',    // 频道类型
+  target: 'group:123',  // 目标群组
+});
 
-## 运行测试
-
-```bash
-npm test
+console.log(result.message);  // 格式化后的分享内容
 ```
+
+### 单独获取帖子
+
+```typescript
+import { fetchAllPosts, mergePosts } from 'openclaw-shit-finder';
+
+const results = await fetchAllPosts();
+const posts = mergePosts(results);
+```
+
+### 评分帖子
+
+```typescript
+import { scorePosts } from 'openclaw-shit-finder';
+
+const scored = scorePosts(posts, [
+  { subreddit: 'shitposting', weight: 1.2 },
+  { subreddit: 'okbuddyretard', weight: 1.1 },
+]);
+```
+
+## 设计理念
+
+本 Skill **不写死评分算法**，而是通过启发式规则 + 可配置权重，让系统自动判断什么是弱智内容。
+
+优势：
+- **灵活性**: 权重可配置，适应不同口味
+- **可进化**: 修改配置即可调整评分标准
+- **自动化**: 定时或触发执行，无需人工干预
 
 ## 相关 Skill
 
 - [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - Reddit 只读浏览
 - [qqbot](https://clawhub.ai/byzgpc/qqbot) - QQ 官方机器人
 
-## 为什么不用硬编码算法？
+## 测试
 
-1. **大模型更懂幽默**: "弱智"是主观概念，规则很难覆盖所有情况
-2. **上下文理解**: 大模型能理解梗、双关、反讽
-3. **易于调整**: 修改提示词比改代码快得多
-4. **语言无关**: 中英文弱智内容都能评估
-
-## 技术栈
-
-- **运行时**: Node.js 18+
-- **语言**: TypeScript 5.5+
-- **测试**: vitest
+```bash
+npm test
+```
 
 ## 许可
 

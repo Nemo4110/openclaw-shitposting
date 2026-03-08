@@ -114,7 +114,34 @@ export {
   isBlacklisted, 
   formatPostMessage, 
   generateSummary,
+  quickPreScore,
   DEFAULT_BLACKLIST,
   DEFAULT_KEYWORDS,
   DEFAULT_SOURCES 
 } from './judge/scorer.js';
+
+// 导出 Pipeline 功能
+export {
+  loadConfig as loadFetchConfig,
+  fetchAllPosts,
+  mergePosts,
+  enrichPostsWithWeights,
+  calculateCompositeScore,
+  type FetchResult,
+} from './pipeline/fetcher.js';
+
+export {
+  loadPipelineConfig,
+  heuristicScore,
+  scorePosts,
+  selectTopPosts,
+  formatShareMessage,
+  runPipeline,
+  main as runPipelineMain,
+} from './pipeline/runner.js';
+
+export {
+  sendFormattedMessage,
+  sendPosts,
+  type SendOptions,
+} from './pipeline/sender.js';

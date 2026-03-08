@@ -62,3 +62,45 @@ export interface Skill {
   version: string;
   execute(context: SkillContext, args: SkillArgs): Promise<ShitFinderResult>;
 }
+
+/** 来源配置 */
+export interface SourceConfig {
+  subreddit: string;
+  name: string;
+  weight?: number;
+  enabled?: boolean;
+}
+
+/** 获取配置 */
+export interface FetchConfig {
+  timeRange: string;
+  postsPerSource: number;
+  maxAgeDays: number;
+}
+
+/** 评判配置 */
+export interface JudgeConfig {
+  minScore: number;
+  maxResults: number;
+  autoShare: boolean;
+}
+
+/** Pipeline 完整配置 */
+export interface PipelineConfig {
+  sources: SourceConfig[];
+  fetch: FetchConfig;
+  judge: JudgeConfig;
+}
+
+/** Pipeline 执行结果 */
+export interface PipelineResult {
+  success: boolean;
+  fetched: number;
+  scored: number;
+  selected: number;
+  posts: ScoredPost[];
+  message: string;
+  dryRun: boolean;
+  sent?: number;
+  sendError?: string;
+}

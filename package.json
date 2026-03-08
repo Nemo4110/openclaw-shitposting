@@ -11,7 +11,10 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "pipeline": "node scripts/pipeline.mjs",
+    "pipeline:dry": "node scripts/pipeline.mjs --dry-run",
+    "trigger": "node scripts/trigger.mjs"
   },
   "keywords": [
     "shitpost",
