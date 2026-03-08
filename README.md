@@ -135,19 +135,23 @@ if (shouldTrigger(userMessage)) {
 🎉 今日弱智内容精选 (3 条)
 
 🥇 [8.6分] 🗿🗿🗿
-    r/shitposting | 👍 20819 | 💬 97
-    🔗 https://www.reddit.com/r/shitposting/comments/1rmhlk9/_/
+    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
+    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
     🖼️ https://i.redd.it/pscau5nx4gng1.jpeg
+    🔗 https://www.reddit.com/r/shitposting/comments/...
 
 🥈 [8.6分] 📡📡📡
-    r/shitposting | 👍 13620 | 💬 70
-    🔗 https://www.reddit.com/r/shitposting/comments/1rmsl7u/_/
+    📍 r/shitposting | 👍 13,620 | 💬 70 | 👤 u/EmojiLord
+    🎯 评分依据: 弱智板块: shitposting · 表情符号 · 高热度
     🖼️ https://i.redd.it/a92zsutz5ing1.jpeg
+    🔗 https://www.reddit.com/r/shitposting/comments/...
 
 🥉 [8.4分] how does this hapan chat?
-    r/okbuddyretard | 👍 2551 | 💬 35
-    🔗 https://www.reddit.com/r/okbuddyretard/comments/1rm3it1/...
-    🖼️ https://i.redd.it/ntr8ez8hlcng1.jpeg
+    📍 r/okbuddyretard | 👍 2,551 | 💬 35 | 👤 u/ConfusedGuy
+    🎯 评分依据: 弱智板块: okbuddyretard · 关键词 · 高互动
+    🔗 https://www.reddit.com/r/okbuddyretard/comments/...
+
+📅 3月8日 11:45
 ```
 
 ## 项目结构
@@ -219,10 +223,11 @@ const scored = scorePosts(posts, [
 - **可进化**: 修改配置即可调整评分标准
 - **自动化**: 定时或触发执行，无需人工干预
 
-## 相关 Skill
+## 相关项目
 
 - [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - Reddit 只读浏览
-- [qqbot](https://clawhub.ai/byzgpc/qqbot) - QQ 官方机器人
+- [NapCat](https://napneko.github.io/guide/napcat) - 基于 NTQQ 的 Bot 框架
+- [@kirigaya/openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot) - OpenClaw OneBot 协议适配插件（通过知乎文章了解：https://zhuanlan.zhihu.com/p/2012467385257459750）
 
 ## 测试
 

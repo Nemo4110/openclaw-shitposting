@@ -171,19 +171,23 @@ interface PipelineResult {
 🎉 今日弱智内容精选 (3 条)
 
 🥇 [8.6分] 🗿🗿🗿
-    r/shitposting | 👍 20819 | 💬 97
-    🔗 https://www.reddit.com/r/shitposting/comments/...
+    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
+    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
     🖼️ https://i.redd.it/...
+    🔗 https://www.reddit.com/r/shitposting/comments/...
 
 🥈 [8.6分] 📡📡📡
-    r/shitposting | 👍 13620 | 💬 70
-    🔗 https://www.reddit.com/r/shitposting/comments/...
+    📍 r/shitposting | 👍 13,620 | 💬 70 | 👤 u/EmojiLord
+    🎯 评分依据: 弱智板块: shitposting · 表情符号 · 高热度
     🖼️ https://i.redd.it/...
+    🔗 https://www.reddit.com/r/shitposting/comments/...
 
 🥉 [8.4分] how does this hapan chat?
-    r/okbuddyretard | 👍 2551 | 💬 35
+    📍 r/okbuddyretard | 👍 2,551 | 💬 35 | 👤 u/ConfusedGuy
+    🎯 评分依据: 弱智板块: okbuddyretard · 关键词 · 高互动
     🔗 https://www.reddit.com/r/okbuddyretard/comments/...
-    🖼️ https://i.redd.it/...
+
+📅 3月8日 11:45
 ```
 
 ## 使用示例
@@ -268,10 +272,11 @@ if (message.includes('弱智') || message.includes('难绷') || message.includes
 | SHITPOST_TARGET | 目标用户/群组 | - |
 | REDDIT_READONLY_PATH | reddit-readonly 脚本路径 | - |
 
-## 相关 Skill
+## 相关项目
 
 - [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - 获取 Reddit 内容
-- [qqbot](https://clawhub.ai/byzgpc/qqbot) - 推送消息到 QQ
+- [NapCat](https://napneko.github.io/guide/napcat) - 基于 NTQQ 的 Bot 框架
+- [@kirigaya/openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot) - OpenClaw OneBot 协议适配插件
 
 ## 版本
 

@@ -180,16 +180,46 @@ export function formatShareMessage(results: ScoredPost[]): string {
 
   results.forEach((item, index) => {
     const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•';
-    lines.push(`${emoji} [${item.score.totalScore.toFixed(1)}分] ${item.post.title.slice(0, 60)}${item.post.title.length > 60 ? '...' : ''}`);
-    lines.push(`    r/${item.post.subreddit} | 👍 ${item.post.score} | 💬 ${item.post.num_comments}`);
-    lines.push(`    🔗 ${item.post.permalink}`);
-    if (item.post.url && !item.post.url.includes('reddit.com')) {
-      lines.push(`    🖼️ ${item.post.url}`);
+    const post = item.post;
+    const score = item.score;
+
+    // 标题行：排名 + 分数 + 标题
+    lines.push(`${emoji} [${score.totalScore.toFixed(1)}分] ${post.title.slice(0, 70)}${post.title.length > 70 ? '...' : ''}`);
+
+    // 元信息行：板块 | 点赞 | 评论 | 作者
+    const author = post.author ? `👤 u/${post.author}` : '';
+    const flair = post.flair ? `🏷️ ${post.flair}` : '';
+    lines.push(`    📍 r/${post.subreddit} | 👍 ${post.score.toLocaleString()} | 💬 ${post.num_comments} ${author} ${flair}`.trimEnd());
+
+    // 评分理由行
+    if (score.reasons.length > 0) {
+      lines.push(`    🎯 评分依据: ${score.reasons.slice(0, 3).join(' · ')}`);
     }
+
+    // 文本内容摘要（如果是文本帖且内容较短）
+    if (post.selftext_snippet && post.selftext_snippet.length > 10) {
+      const snippet = post.selftext_snippet.slice(0, 80).replace(/\n/g, ' ');
+      lines.push(`    📝 ${snippet}${post.selftext_snippet.length > 80 ? '...' : ''}`);
+    }
+
+    // 图片/视频链接
+    if (post.url && !post.url.includes('reddit.com')) {
+      lines.push(`    🖼️ ${post.url}`);
+    }
+
+    // Reddit 链接
+    const fullUrl = post.permalink.startsWith('http') ? post.permalink : `https://www.reddit.com${post.permalink}`;
+    lines.push(`    🔗 ${fullUrl}`);
+
+    // 分隔行（除了最后一条）
     if (index < results.length - 1) {
       lines.push('');
     }
   });
+
+  // 添加时间戳
+  lines.push('');
+  lines.push(`📅 ${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`);
 
   return lines.join('\n');
 }
