@@ -1,3 +1,13 @@
+---
+name: shit-finder
+description: >-
+  评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子并自动分享。
+  使用场景：(1) 对 Reddit 帖子列表进行弱智度评分筛选，(2) 配合 reddit-readonly 使用，
+  (3) 自动从配置的 subreddits 获取、评分并推送到 QQ/Discord 等 channels，
+  (4) 通过关键词触发自动执行（如"来点弱智内容"、"找屎"、"难绷"）。
+metadata: {"emoji":"💩","requires":{"bins":["node"]},"version":"2.0.0"}
+---
+
 # 找屎 Skill (Shit Finder)
 
 评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子。
@@ -280,4 +290,4 @@ if (message.includes('弱智') || message.includes('难绷') || message.includes
 
 ## 版本
 
-2.1.0 - 新增 Pipeline 自动获取与分享功能
+2.0.0 - Pipeline 自动获取与分享功能
