@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
  * 找屎 Skill (Shit Finder)
- * 
- * 评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子。
- * 
+ *
+ * 评估 Reddit/小红书 内容的"弱智度"，筛选最脑残/搞笑的帖子。
+ *
  * 评分逻辑由调用本 Skill 的大模型根据 SKILL.md 的提示词完成。
  */
 
 import type { 
-  RedditPost, 
+  RedditPost,
+  XiaohongshuPost,
   ScoredPost,
   ShitFinderResult, 
   SkillArgs, 
@@ -24,8 +25,8 @@ import {
 
 export const skill: Skill = {
   name: 'shit-finder',
-  description: '评估 Reddit 内容的"弱智度"，筛选最脑残/搞笑的帖子',
-  version: '2.0.0',
+  description: '评估 Reddit/小红书 内容的"弱智度"，筛选最脑残/搞笑的帖子',
+  version: '2.1.0',
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(_context: SkillContext, args: SkillArgs): Promise<ShitFinderResult> {

@@ -29,7 +29,7 @@ export interface JudgeResult {
 
 /** 带评分的帖子 */
 export interface ScoredPost {
-  post: RedditPost;
+  post: RedditPost | XiaohongshuPost;
   score: JudgeResult;
   formattedMessage?: string;
 }
@@ -85,11 +85,42 @@ export interface JudgeConfig {
   autoShare: boolean;
 }
 
+/** 小红书配置 */
+export interface XiaohongshuConfig {
+  enabled: boolean;
+  keywords: string[];
+  postsPerKeyword: number;
+  name: string;
+  weight: number;
+}
+
 /** Pipeline 完整配置 */
 export interface PipelineConfig {
   sources: SourceConfig[];
   fetch: FetchConfig;
   judge: JudgeConfig;
+  xiaohongshu?: XiaohongshuConfig;
+}
+
+/** 小红书帖子数据 */
+export interface XiaohongshuPost {
+  id: string;
+  title: string;
+  author: string;
+  score: number;
+  num_comments: number;
+  likedCount: string;
+  collectedCount: string;
+  commentCount: string;
+  sharedCount?: string;
+  cover?: string;
+  noteType: 'normal' | 'video';
+  xsecToken: string;
+  userId?: string;
+  subreddit: string;
+  permalink: string;
+  url?: string;
+  source: 'xiaohongshu';
 }
 
 /** Pipeline 执行结果 */

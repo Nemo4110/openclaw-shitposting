@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 
 import type { 
   RedditPost, 
+  XiaohongshuPost,
   JudgeResult, 
   ScoredPost, 
   PipelineConfig,
@@ -47,7 +48,7 @@ export async function loadPipelineConfig(): Promise<PipelineConfig> {
 }
 
 /** 评分函数 - 启发式预评分 */
-export function heuristicScore(post: RedditPost, sourceWeight: number = 1.0): JudgeResult {
+export function heuristicScore(post: RedditPost | XiaohongshuPost, sourceWeight: number = 1.0): JudgeResult {
   const reasons: string[] = [];
   let score = 4.0; // 基础分4分，确保热门内容能通过
   const title = post.title.toLowerCase();
@@ -58,7 +59,8 @@ export function heuristicScore(post: RedditPost, sourceWeight: number = 1.0): Ju
     'what', 'why', 'how', 'seriously', 'literally', 'absolutely',
     'confused', 'lost', 'nobody', 'stupid', 'dumb', 'crazy',
     '绝了', '离谱', '无语', 'cpu烧了', '烧脑',
-    '看不懂', '什么鬼', '懵了', '迷惑', '裂开', '麻了', '服了'
+    '看不懂', '什么鬼', '懵了', '迷惑', '裂开', '麻了', '服了',
+    '下头', '奇葩', '大无语', '震惊', '逆天'
   ];
   
   for (const kw of keywords) {
@@ -87,7 +89,11 @@ export function heuristicScore(post: RedditPost, sourceWeight: number = 1.0): Ju
   const comedySources = ['comedyheaven', 'terriblefacebookmemes'];
   const otherSources = ['facepalm', 'wtf'];
   
-  if (shitpostSources.some(s => post.subreddit.toLowerCase().includes(s))) {
+  if ((post as any).source === 'xiaohongshu') {
+    score += 1.0;
+    reasons.push('📕 小红书');
+  }
+  else if (shitpostSources.some(s => post.subreddit.toLowerCase().includes(s))) {
     score += 2.0;
     reasons.push(`弱智板块: ${post.subreddit}`);
   } else if (comedySources.some(s => post.subreddit.toLowerCase().includes(s))) {
@@ -98,20 +104,26 @@ export function heuristicScore(post: RedditPost, sourceWeight: number = 1.0): Ju
     reasons.push(`来源: ${post.subreddit}`);
   }
   
-  // 5. 热度特征
-  if (post.score > 1000) {
+  // 5. 热度特征（兼容 Reddit 和小红书）
+  const likedCount = (post as any).source === 'xiaohongshu' 
+    ? parseInt((post as XiaohongshuPost).likedCount || '0', 10) 
+    : post.score;
+  if (likedCount > 1000) {
     score += 0.5;
     reasons.push('高热度');
   }
   
-  // 6. 互动特征
-  if (post.num_comments > 50) {
+  // 6. 互动特征（兼容 Reddit 和小红书）
+  const commentCount = (post as any).source === 'xiaohongshu'
+    ? parseInt((post as XiaohongshuPost).commentCount || '0', 10)
+    : post.num_comments;
+  if (commentCount > 50) {
     score += 0.3;
     if (!reasons.some(r => r.includes('互动'))) {
       reasons.push('高互动');
     }
   }
-  if (post.num_comments > 100 && post.score < 5000) {
+  if (commentCount > 100 && likedCount < 5000) {
     score += 0.5;
     reasons.push('争议性');
   }
@@ -137,15 +149,22 @@ export function heuristicScore(post: RedditPost, sourceWeight: number = 1.0): Ju
 
 /** 评分所有帖子 */
 export function scorePosts(
-  posts: RedditPost[],
-  sources: { subreddit: string; weight?: number }[]
+  posts: (RedditPost | XiaohongshuPost)[],
+  sources: { subreddit: string; weight?: number }[],
+  xiaohongshuConfig?: { enabled: boolean; weight: number }
 ): ScoredPost[] {
   const sourceMap = new Map(sources.map(s => [s.subreddit.toLowerCase(), s.weight || 1.0]));
+  
+  // 添加小红书权重
+  if (xiaohongshuConfig?.enabled) {
+    sourceMap.set('xiaohongshu', xiaohongshuConfig.weight || 1.0);
+  }
   
   return posts
     .filter(p => !isBlacklisted(p))
     .map(post => {
-      const weight = sourceMap.get(post.subreddit.toLowerCase()) || 1.0;
+      const lookupKey = (post as any).source === 'xiaohongshu' ? 'xiaohongshu' : post.subreddit?.toLowerCase();
+      const weight = sourceMap.get(lookupKey) || 1.0;
       const score = heuristicScore(post, weight);
       return {
         post,
@@ -187,29 +206,48 @@ export function formatShareMessage(results: ScoredPost[]): string {
     lines.push(`${emoji} [${score.totalScore.toFixed(1)}分] ${post.title.slice(0, 70)}${post.title.length > 70 ? '...' : ''}`);
 
     // 元信息行：板块 | 点赞 | 评论 | 作者
-    const author = post.author ? `👤 u/${post.author}` : '';
-    const flair = post.flair ? `🏷️ ${post.flair}` : '';
-    lines.push(`    📍 r/${post.subreddit} | 👍 ${post.score.toLocaleString()} | 💬 ${post.num_comments} ${author} ${flair}`.trimEnd());
-
-    // 评分理由行
-    if (score.reasons.length > 0) {
-      lines.push(`    🎯 评分依据: ${score.reasons.slice(0, 3).join(' · ')}`);
+    // 小红书格式
+    if ((post as any).source === 'xiaohongshu') {
+      const xhsPost = post as XiaohongshuPost;
+      const author = xhsPost.author ? `👤 ${xhsPost.author}` : '';
+      const liked = xhsPost.likedCount || '0';
+      const collected = xhsPost.collectedCount || '0';
+      const comments = xhsPost.commentCount || '0';
+      lines.push(`    📕 小红书 | 👍 ${liked} | ⭐ ${collected} | 💬 ${comments} ${author}`.trimEnd());
+      // 评分理由行
+      if (score.reasons.length > 0) {
+        lines.push(`    🎯 评分依据: ${score.reasons.slice(0, 3).join(' · ')}`);
+      }
+      // 图片链接
+      if (xhsPost.cover) {
+        lines.push(`    🖼️ ${xhsPost.cover}`);
+      }
+      // 链接
+      lines.push(`    🔗 https://www.xiaohongshu.com/explore/${xhsPost.id}`);
     }
-
-    // 文本内容摘要（如果是文本帖且内容较短）
-    if (post.selftext_snippet && post.selftext_snippet.length > 10) {
-      const snippet = post.selftext_snippet.slice(0, 80).replace(/\n/g, ' ');
-      lines.push(`    📝 ${snippet}${post.selftext_snippet.length > 80 ? '...' : ''}`);
+    else {
+      // Reddit 格式
+      const redditPost = post as RedditPost;
+      const author = redditPost.author ? `👤 u/${redditPost.author}` : '';
+      const flair = redditPost.flair ? `🏷️ ${redditPost.flair}` : '';
+      lines.push(`    📍 r/${redditPost.subreddit} | 👍 ${redditPost.score.toLocaleString()} | 💬 ${redditPost.num_comments} ${author} ${flair}`.trimEnd());
+      // 评分理由行
+      if (score.reasons.length > 0) {
+        lines.push(`    🎯 评分依据: ${score.reasons.slice(0, 3).join(' · ')}`);
+      }
+      // 文本内容摘要（如果是文本帖且内容较短）
+      if (redditPost.selftext_snippet && redditPost.selftext_snippet.length > 10) {
+        const snippet = redditPost.selftext_snippet.slice(0, 80).replace(/\n/g, ' ');
+        lines.push(`    📝 ${snippet}${redditPost.selftext_snippet.length > 80 ? '...' : ''}`);
+      }
+      // 图片/视频链接
+      if (redditPost.url && !redditPost.url.includes('reddit.com')) {
+        lines.push(`    🖼️ ${redditPost.url}`);
+      }
+      // Reddit 链接
+      const fullUrl = redditPost.permalink.startsWith('http') ? redditPost.permalink : `https://www.reddit.com${redditPost.permalink}`;
+      lines.push(`    🔗 ${fullUrl}`);
     }
-
-    // 图片/视频链接
-    if (post.url && !post.url.includes('reddit.com')) {
-      lines.push(`    🖼️ ${post.url}`);
-    }
-
-    // Reddit 链接
-    const fullUrl = post.permalink.startsWith('http') ? post.permalink : `https://www.reddit.com${post.permalink}`;
-    lines.push(`    🔗 ${fullUrl}`);
 
     // 分隔行（除了最后一条）
     if (index < results.length - 1) {
@@ -233,28 +271,40 @@ export async function runPipeline(
     redditReadonlyPath?: string;
     channel?: string;
     target?: string;
+    xiaohongshuPath?: string;
+    xiaohongshuEnabled?: boolean;
   } = {}
 ): Promise<PipelineResult> {
   const config = await loadPipelineConfig();
   const maxResults = options.maxResults ?? config.judge.maxResults ?? 3;
   const minScore = options.minScore ?? config.judge.minScore ?? 5.5;
+  const xiaohongshuEnabled = options.xiaohongshuEnabled ?? config.xiaohongshu?.enabled ?? false;
 
   console.log('🚀 启动 Shitposting Pipeline...');
   console.log(`📊 配置: 最大${maxResults}条, 最低${minScore}分`);
+  if (xiaohongshuEnabled || config.xiaohongshu?.enabled) {
+    console.log('📕 小红书源已启用');
+  }
 
   // 1. 获取帖子
   console.log('\n📥 正在获取帖子...');
   const fetchResults = await fetchAllPosts(
-    { sources: config.sources, fetch: config.fetch },
-    options.redditReadonlyPath
+    { ...config, xiaohongshu: { ...config.xiaohongshu, enabled: xiaohongshuEnabled } as any },
+    options.redditReadonlyPath,
+    options.xiaohongshuPath
   );
 
   const allPosts = mergePosts(fetchResults);
   console.log(`✅ 获取到 ${allPosts.length} 条唯一帖子`);
+  // 统计来源
+  const redditCount = allPosts.filter(p => (p as any).source !== 'xiaohongshu').length;
+  const xhsCount = allPosts.filter(p => (p as any).source === 'xiaohongshu').length;
+  if (redditCount > 0) console.log(`   - Reddit: ${redditCount} 条`);
+  if (xhsCount > 0) console.log(`   - 小红书: ${xhsCount} 条`);
 
   // 2. 评分
   console.log('\n🎯 正在评分...');
-  const scoredPosts = scorePosts(allPosts, config.sources);
+  const scoredPosts = scorePosts(allPosts, config.sources, config.xiaohongshu);
   console.log(`✅ 评分完成: ${scoredPosts.filter(p => p.score.isShitpost).length} 条通过阈值`);
 
   // 3. 选择 Top N
@@ -324,6 +374,8 @@ export async function main(): Promise<void> {
     channel: process.env.SHITPOST_CHANNEL,
     target: process.env.SHITPOST_TARGET,
     redditReadonlyPath: process.env.REDDIT_READONLY_PATH,
+    xiaohongshuPath: process.env.XIAOHONGSHU_PATH,
+    xiaohongshuEnabled: process.env.XIAOHONGSHU_ENABLED === 'true',
   };
 
   if (args.includes('--help') || args.includes('-h')) {
@@ -343,6 +395,8 @@ Shitposting Pipeline - 自动找屎并分享
   SHITPOST_CHANNEL        目标频道 (如: onebot, discord, telegram)
   SHITPOST_TARGET         目标用户/群组 (如: group:123456)
   REDDIT_READONLY_PATH    reddit-readonly 脚本路径
+  XIAOHONGSHU_ENABLED     启用小红书源 (true/false)
+  XIAOHONGSHU_PATH        xiaohongshu-skills 路径
 `);
     return;
   }

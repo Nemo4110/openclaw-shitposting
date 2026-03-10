@@ -1,7 +1,7 @@
 {
   "name": "openclaw-shit-finder",
-  "version": "2.0.0",
-  "description": "OpenClaw Skill - 弱智度评分器，专注'找屎'",
+  "version": "2.1.0",
+  "description": "OpenClaw Skill - 弱智度评分器，专注'找屎'（支持 Reddit 和小红书）",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",

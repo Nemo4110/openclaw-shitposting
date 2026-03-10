@@ -5,7 +5,7 @@
  * 本文件只提供数据结构和工具函数
  */
 
-import type { RedditPost, JudgeResult, ScoredPost } from '../types/index.js';
+import type { RedditPost, XiaohongshuPost, JudgeResult, ScoredPost } from '../types/index.js';
 
 /** 默认关键词配置 */
 export const DEFAULT_KEYWORDS = {
@@ -36,15 +36,38 @@ export const DEFAULT_SOURCES = [
 /**
  * 检查帖子是否在黑名单中
  */
-export function isBlacklisted(post: RedditPost, blacklist: string[] = DEFAULT_BLACKLIST): boolean {
-  const text = `${post.title} ${post.selftext_snippet ?? ''}`.toLowerCase();
+export function isBlacklisted(post: RedditPost | XiaohongshuPost, blacklist: string[] = DEFAULT_BLACKLIST): boolean {
+  const text = `${post.title} ${(post as any).selftext_snippet ?? ''}`.toLowerCase();
   return blacklist.some(kw => text.includes(kw.toLowerCase()));
 }
 
 /**
  * 格式化帖子为消息文本
  */
-export function formatPostMessage(post: RedditPost, score: JudgeResult): string {
+export function formatPostMessage(post: RedditPost | XiaohongshuPost, score: JudgeResult): string {
+  // 小红书格式
+  if ((post as any).source === 'xiaohongshu') {
+    const xhsPost = post as XiaohongshuPost;
+    const lines: string[] = [
+      `📌 ${xhsPost.title}`,
+      ``,
+      `📕 小红书 | 👍 ${xhsPost.likedCount} | ⭐ ${xhsPost.collectedCount} | 💬 ${xhsPost.commentCount}`,
+      `🔗 https://www.xiaohongshu.com/explore/${xhsPost.id}`,
+      `🎯 弱智度: ${score.totalScore.toFixed(1)}/10`,
+    ];
+
+    if (score.reasons.length > 0) {
+      lines.push(`📊 ${score.reasons.slice(0, 2).join(', ')}`);
+    }
+
+    if (xhsPost.cover) {
+      lines.push(`🖼️ ${xhsPost.cover}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  // Reddit 格式
   const lines: string[] = [
     `📌 ${post.title}`,
     ``,
@@ -57,9 +80,9 @@ export function formatPostMessage(post: RedditPost, score: JudgeResult): string 
     lines.push(`📊 ${score.reasons.slice(0, 2).join(', ')}`);
   }
 
-  if (post.selftext_snippet) {
-    const snippet = post.selftext_snippet.slice(0, 100);
-    lines.push(`📝 ${snippet}${post.selftext_snippet.length > 100 ? '...' : ''}`);
+  if ((post as any).selftext_snippet) {
+    const snippet = (post as any).selftext_snippet.slice(0, 100);
+    lines.push(`📝 ${snippet}${(post as any).selftext_snippet.length > 100 ? '...' : ''}`);
   }
 
   if (post.url && !post.url.includes('reddit.com')) {
@@ -97,10 +120,15 @@ export function generateSummary(results: ScoredPost[]): string {
  * 简单的启发式预评分（用于快速过滤，非必需）
  * 真正的评分由大模型根据 SKILL.md 的提示词完成
  */
-export function quickPreScore(post: RedditPost): number {
+export function quickPreScore(post: RedditPost | XiaohongshuPost): number {
   let score = 0;
   const title = post.title.toLowerCase();
-  
+
+  // 小红书来源加分
+  if ((post as any).source === 'xiaohongshu') {
+    score += 0.5;
+  }
+
   // 关键词匹配
   for (const kw of DEFAULT_KEYWORDS.en) {
     if (title.includes(kw)) score += 0.5;
@@ -108,7 +136,7 @@ export function quickPreScore(post: RedditPost): number {
   for (const kw of DEFAULT_KEYWORDS.zh) {
     if (post.title.includes(kw)) score += 0.5;
   }
-  
+
   // 来源加分
   for (const src of DEFAULT_SOURCES) {
     if (post.subreddit.toLowerCase().includes(src)) {
@@ -116,6 +144,6 @@ export function quickPreScore(post: RedditPost): number {
       break;
     }
   }
-  
+
   return Math.min(score, 3);
 }
