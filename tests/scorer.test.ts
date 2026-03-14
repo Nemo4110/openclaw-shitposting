@@ -43,11 +43,11 @@ describe('formatPostMessage', () => {
 
     const message = formatPostMessage(post, score);
 
-    expect(message).toContain('📌 wtf is this');
-    expect(message).toContain('🏷️ r/shitposting');
-    expect(message).toContain('👍 1500');
-    expect(message).toContain('💬 200');
-    expect(message).toContain('🎯 弱智度: 8.5/10');
+    expect(message).toContain('标题: wtf is this');
+    expect(message).toContain('来源: r/shitposting');
+    expect(message).toContain('点赞: 1500');
+    expect(message).toContain('评论: 200');
+    expect(message).toContain('评分: 8.5/10');
   });
 });
 
@@ -60,14 +60,14 @@ describe('generateSummary', () => {
 
     const summary = generateSummary(results);
 
-    expect(summary).toContain('🎉 今日弱智内容精选 (2 条)');
-    expect(summary).toContain('[8.0] Post 1');
-    expect(summary).toContain('[7.0] Post 2');
+    expect(summary).toContain('今日弱智内容精选 (2 条)');
+    expect(summary).toContain('[1] 评分: 8.0/10');
+    expect(summary).toContain('[2] 评分: 7.0/10');
   });
 
   it('空结果应该返回友好提示', () => {
     const summary = generateSummary([]);
-    expect(summary).toContain('🤷');
+    expect(summary).toContain('没有找到符合条件的弱智内容');
   });
 });
 

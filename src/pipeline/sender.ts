@@ -69,7 +69,7 @@ export async function sendPosts(
 
   // 先发送摘要
   if (posts.length > 0) {
-    const header = `🎉 今日弱智内容精选 (${posts.length} 条)`;
+    const header = `今日弱智内容精选 (${posts.length} 条)`;
     const result = await sendMessage(header, options);
     if (result.success) {
       results.sent++;
@@ -101,14 +101,14 @@ export async function sendPosts(
 /** 格式化帖子为分享文本 */
 function formatPostForSharing(post: ScoredPost): string {
   const lines: string[] = [
-    `📌 ${post.post.title}`,
+    `标题: ${post.post.title}`,
     '',
-    `🏷️ r/${post.post.subreddit} | 👍 ${post.post.score} | 💬 ${post.post.num_comments}`,
-    `🔗 ${post.post.permalink}`,
+    `来源: r/${post.post.subreddit} | 点赞: ${post.post.score} | 评论: ${post.post.num_comments}`,
+    `讨论: ${post.post.permalink}`,
   ];
 
   if (post.post.url && !post.post.url.includes('reddit.com')) {
-    lines.push(`🖼️ ${post.post.url}`);
+    lines.push(post.post.url);
   }
 
   return lines.join('\n');

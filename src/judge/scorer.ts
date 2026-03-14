@@ -49,19 +49,19 @@ export function formatPostMessage(post: RedditPost | XiaohongshuPost, score: Jud
   if ((post as any).source === 'xiaohongshu') {
     const xhsPost = post as XiaohongshuPost;
     const lines: string[] = [
-      `📌 ${xhsPost.title}`,
+      `标题: ${xhsPost.title}`,
       ``,
-      `📕 小红书 | 👍 ${xhsPost.likedCount} | ⭐ ${xhsPost.collectedCount} | 💬 ${xhsPost.commentCount}`,
-      `🔗 https://www.xiaohongshu.com/explore/${xhsPost.id}`,
-      `🎯 弱智度: ${score.totalScore.toFixed(1)}/10`,
+      `来源: 小红书 | 点赞: ${xhsPost.likedCount} | 收藏: ${xhsPost.collectedCount} | 评论: ${xhsPost.commentCount}`,
+      `链接: https://www.xiaohongshu.com/explore/${xhsPost.id}`,
+      `评分: ${score.totalScore.toFixed(1)}/10`,
     ];
 
     if (score.reasons.length > 0) {
-      lines.push(`📊 ${score.reasons.slice(0, 2).join(', ')}`);
+      lines.push(`推荐理由: ${score.reasons.slice(0, 2).join(', ')}`);
     }
 
     if (xhsPost.cover) {
-      lines.push(`🖼️ ${xhsPost.cover}`);
+      lines.push(xhsPost.cover);
     }
 
     return lines.join('\n');
@@ -69,24 +69,24 @@ export function formatPostMessage(post: RedditPost | XiaohongshuPost, score: Jud
 
   // Reddit 格式
   const lines: string[] = [
-    `📌 ${post.title}`,
+    `标题: ${post.title}`,
     ``,
-    `🏷️ r/${post.subreddit} | 👍 ${post.score} | 💬 ${post.num_comments}`,
-    `🔗 ${post.permalink}`,
-    `🎯 弱智度: ${score.totalScore.toFixed(1)}/10`,
+    `来源: r/${post.subreddit} | 点赞: ${post.score} | 评论: ${post.num_comments}`,
+    `讨论: ${post.permalink}`,
+    `评分: ${score.totalScore.toFixed(1)}/10`,
   ];
 
   if (score.reasons.length > 0) {
-    lines.push(`📊 ${score.reasons.slice(0, 2).join(', ')}`);
+    lines.push(`推荐理由: ${score.reasons.slice(0, 2).join(', ')}`);
   }
 
   if ((post as any).selftext_snippet) {
-    const snippet = (post as any).selftext_snippet.slice(0, 100);
-    lines.push(`📝 ${snippet}${(post as any).selftext_snippet.length > 100 ? '...' : ''}`);
+    const snippet = (post as any).selftext_snippet.slice(0, 150);
+    lines.push(`内容: ${snippet}${(post as any).selftext_snippet.length > 150 ? '...' : ''}`);
   }
 
   if (post.url && !post.url.includes('reddit.com')) {
-    lines.push(`🖼️ ${post.url}`);
+    lines.push(post.url);
   }
 
   return lines.join('\n');
@@ -97,21 +97,21 @@ export function formatPostMessage(post: RedditPost | XiaohongshuPost, score: Jud
  */
 export function generateSummary(results: ScoredPost[]): string {
   if (results.length === 0) {
-    return '🤷 没有找到符合条件的弱智内容';
+    return '没有找到符合条件的弱智内容';
   }
 
   const lines: string[] = [
-    `🎉 今日弱智内容精选 (${results.length} 条)`,
+    `今日弱智内容精选 (${results.length} 条)`,
     ``,
   ];
 
   results.forEach((item, index) => {
-    const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '•';
-    lines.push(`${emoji} [${item.score.totalScore.toFixed(1)}] ${item.post.title.slice(0, 50)}${item.post.title.length > 50 ? '...' : ''}`);
+    const rank = index + 1;
+    lines.push(`[${rank}] 评分: ${item.score.totalScore.toFixed(1)}/10 - ${item.post.title.slice(0, 60)}${item.post.title.length > 60 ? '...' : ''}`);
   });
 
   lines.push('');
-  lines.push('👇 详细内容');
+  lines.push('详细内容见下方');
 
   return lines.join('\n');
 }
