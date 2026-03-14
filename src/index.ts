@@ -41,7 +41,7 @@ export const skill: Skill = {
         passedCount: 0,
         selectedCount: 0,
         results: [],
-        summaryText: '🤷 没有输入内容',
+        summaryText: '没有输入内容',
       };
     }
 
@@ -146,3 +146,18 @@ export {
   sendPosts,
   type SendOptions,
 } from './pipeline/sender.js';
+
+// 导出工具函数
+export {
+  checkDependencies,
+  formatSkillCheckResult,
+  type SkillStatus,
+  type SkillCheckConfig,
+} from './utils/skill-checker.js';
+
+export {
+  fetchPostDetail,
+  fetchPostsDetails,
+  generateTldr,
+  type PostDetail,
+} from './utils/content-fetcher.js';
