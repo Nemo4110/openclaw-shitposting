@@ -1,57 +1,15 @@
 {
   "sources": [
-    {
-      "subreddit": "shitposting",
-      "name": "弱智",
-      "weight": 1.2,
-      "enabled": true
-    },
-    {
-      "subreddit": "okbuddyretard",
-      "name": "难绷",
-      "weight": 1.1,
-      "enabled": true
-    },
-    {
-      "subreddit": "comedyheaven",
-      "name": "有趣",
-      "weight": 1.0,
-      "enabled": true
-    },
-    {
-      "subreddit": "facepalm",
-      "name": "无语",
-      "weight": 0.9,
-      "enabled": true
-    },
-    {
-      "subreddit": "terriblefacebookmemes",
-      "name": "老梗",
-      "weight": 0.8,
-      "enabled": true
-    },
-    {
-      "subreddit": "wtf",
-      "name": "震惊",
-      "weight": 1.0,
-      "enabled": true
-    }
+    {"subreddit": "shitposting", "weight": 1.2},
+    {"subreddit": "okbuddyretard", "weight": 1.1},
+    {"subreddit": "comedyheaven", "weight": 1.0},
+    {"subreddit": "terriblefacebookmemes", "weight": 0.8},
+    {"subreddit": "facepalm", "weight": 0.9},
+    {"subreddit": "wtf", "weight": 1.0}
   ],
   "xiaohongshu": {
     "enabled": false,
-    "keywords": ["下头男", "离谱", "无语", "奇葩", "大无语事件"],
-    "postsPerKeyword": 10,
-    "name": "📕 小红书",
-    "weight": 1.0
-  },
-  "fetch": {
-    "timeRange": "week",
-    "postsPerSource": 15,
-    "maxAgeDays": 7
-  },
-  "judge": {
-    "minScore": 5.5,
-    "maxResults": 3,
-    "autoShare": true
+    "keywords": ["离谱", "无语", "奇葩", "下头", "大无语"],
+    "postsPerKeyword": 10
   }
 }

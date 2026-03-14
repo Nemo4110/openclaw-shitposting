@@ -1,43 +1,29 @@
 {
   "name": "openclaw-shit-finder",
-  "version": "2.1.0",
-  "description": "OpenClaw Skill - 弱智度评分器，专注'找屎'（支持 Reddit 和小红书）",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "type": "module",
+  "version": "3.0.0",
+  "description": "OpenClaw Skill - 弱智内容推荐官（支持 Reddit 和小红书）",
+  "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx src/index.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "lint": "tsc --noEmit",
-    "clean": "rm -rf dist",
-    "pipeline": "node scripts/pipeline.mjs",
-    "pipeline:dry": "node scripts/pipeline.mjs --dry-run",
-    "trigger": "node scripts/trigger.mjs"
+    "score": "python3 shit_finder.py score",
+    "format": "python3 shit_finder.py format",
+    "check": "node index.js check"
   },
   "keywords": [
     "shitpost",
-    "scorer",
-    "judge",
-    "openclaw",
-    "skill",
     "reddit",
-    "content-filter"
+    "xiaohongshu",
+    "content-curator",
+    "openclaw",
+    "skill"
   ],
   "author": "OpenClaw Community",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
-  },
   "files": [
-    "dist",
+    "index.js",
+    "shit_finder.py",
     "SKILL.md",
     "README.md"
   ]
