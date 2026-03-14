@@ -132,27 +132,32 @@ if (shouldTrigger(userMessage)) {
 ## 输出示例
 
 ```
-🎉 今日弱智内容精选 (3 条)
+今日弱智内容精选 (3 条)
 
-🥇 [8.6分] 🗿🗿🗿
-    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
-    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
-    🖼️ https://i.redd.it/pscau5nx4gng1.jpeg
-    🔗 https://www.reddit.com/r/shitposting/comments/...
+[1] 评分: 8.6/10
+标题: Something tells me this is how he got all his wins
+摘要: 内容: A truck carrying wine bottles crashed... | 热评: "Finally, a vintage with some body to it"
+来源: r/shitposting | 点赞: 5,897 | 评论: 84 | 作者: u/Stock-Discount7213
+推荐理由: 弱智板块: shitposting, 高热度
+https://i.redd.it/bf7htsf35og1.png
+讨论: https://www.reddit.com/r/shitposting/comments/...
 
-🥈 [8.6分] 📡📡📡
-    📍 r/shitposting | 👍 13,620 | 💬 70 | 👤 u/EmojiLord
-    🎯 评分依据: 弱智板块: shitposting · 表情符号 · 高热度
-    🖼️ https://i.redd.it/a92zsutz5ing1.jpeg
-    🔗 https://www.reddit.com/r/shitposting/comments/...
+---
 
-🥉 [8.4分] how does this hapan chat?
-    📍 r/okbuddyretard | 👍 2,551 | 💬 35 | 👤 u/ConfusedGuy
-    🎯 评分依据: 弱智板块: okbuddyretard · 关键词 · 高互动
-    🔗 https://www.reddit.com/r/okbuddyretard/comments/...
+[2] 评分: 8.6/10
+标题: Dogshit
+摘要: 内容: Just a picture of actual dog poop... | 热评: "Why did I click on this?"
+来源: r/shitposting | 点赞: 4,591 | 评论: 115 | 作者: u/No_Employer3674
+推荐理由: 弱智板块: shitposting, 高热度, 高互动
+https://i.redd.it/ybnzccs533og1.jpeg
+讨论: https://www.reddit.com/r/shitposting/comments/...
 
-📅 3月8日 11:45
+更新时间: 3月11日 00:25
 ```
+
+**新特性:**
+- **依赖技能检查**: 运行前自动检查 reddit-readonly 和 xiaohongshu 技能是否可用
+- **TL;DR 摘要**: 自动获取帖子详情，生成内容摘要和热评摘录
 
 ## 项目结构
 
@@ -167,10 +172,13 @@ openclaw-shitposting/
 │   ├── index.ts              # Skill 入口
 │   ├── types/                # 类型定义
 │   ├── judge/                # 评分逻辑
-│   └── pipeline/             # Pipeline 模块
-│       ├── fetcher.ts        # 帖子获取
-│       ├── runner.ts         # 流程编排
-│       └── sender.ts         # 消息发送
+│   ├── pipeline/             # Pipeline 模块
+│   │   ├── fetcher.ts        # 帖子获取
+│   │   ├── runner.ts         # 流程编排
+│   │   └── sender.ts         # 消息发送
+│   └── utils/                # 工具模块
+│       ├── skill-checker.ts  # 依赖技能检查
+│       └── content-fetcher.ts # 内容获取与TL;DR生成
 ├── tests/
 ├── SKILL.md                  # 详细文档
 └── README.md
@@ -184,14 +192,21 @@ openclaw-shitposting/
 import { runPipeline } from 'openclaw-shit-finder';
 
 const result = await runPipeline({
-  maxResults: 3,        // 最多分享几条
-  minScore: 5.5,        // 最低评分阈值
-  dryRun: false,        // 是否试运行
-  channel: 'onebot',    // 频道类型
-  target: 'group:123',  // 目标群组
+  maxResults: 3,           // 最多分享几条
+  minScore: 5.5,           // 最低评分阈值
+  dryRun: false,           // 是否试运行
+  channel: 'onebot',       // 频道类型
+  target: 'group:123',     // 目标群组
+  skipSkillCheck: false,   // 是否跳过依赖技能检查
+  skipContentFetch: false, // 是否跳过获取帖子详情（不生成TL;DR）
 });
 
 console.log(result.message);  // 格式化后的分享内容
+
+// 如果依赖技能检查失败
+if (result.skillCheckErrors) {
+  console.error('依赖技能问题:', result.skillCheckErrors);
+}
 ```
 
 ### 单独获取帖子
@@ -223,9 +238,43 @@ const scored = scorePosts(posts, [
 - **可进化**: 修改配置即可调整评分标准
 - **自动化**: 定时或触发执行，无需人工干预
 
+## 依赖技能
+
+本 Skill 依赖以下技能获取数据：
+
+| 技能 | 必需 | 用途 | 安装 |
+|------|------|------|------|
+| [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) | 是 | 获取 Reddit 帖子 | 自动检测 |
+| [xiaohongshu-skills](https://github.com/autoclaw-cc/xiaohongshu-skills) | 否 | 获取小红书帖子 | 需手动安装并登录 |
+
+### 依赖技能检查
+
+Pipeline 启动时会自动检查依赖技能是否可用：
+
+```bash
+# 如果技能未安装或不可用，会提示用户
+npm run pipeline
+
+# 跳过技能检查（如果确定技能已安装）
+npm run pipeline -- --skip-skill-check
+
+# 跳过获取帖子详情（不生成 TL;DR）
+npm run pipeline -- --skip-content-fetch
+```
+
+### 技能路径配置
+
+如果技能安装在非标准位置，可通过环境变量指定：
+
+```bash
+export REDDIT_READONLY_PATH=/path/to/reddit-readonly.mjs
+export XIAOHONGSHU_PATH=/path/to/xiaohongshu-skills
+```
+
 ## 相关项目
 
 - [reddit-readonly](https://clawhub.ai/buksan1950/reddit-readonly) - Reddit 只读浏览
+- [xiaohongshu-skills](https://github.com/autoclaw-cc/xiaohongshu-skills) - 小红书自动化
 - [NapCat](https://napneko.github.io/guide/napcat) - 基于 NTQQ 的 Bot 框架
 - [@kirigaya/openclaw-onebot](https://github.com/LSTM-Kirigaya/openclaw-onebot) - OpenClaw OneBot 协议适配插件（通过知乎文章了解：https://zhuanlan.zhihu.com/p/2012467385257459750）
 

@@ -5,7 +5,7 @@ description: >-
   使用场景：(1) 对帖子列表进行弱智度评分筛选，(2) 配合 reddit-readonly 或 xiaohongshu-skills 使用，
   (3) 自动从配置的 subreddits/小红书关键词 获取、评分并推送到 QQ/Discord 等 channels，
   (4) 通过关键词触发自动执行（如"来点弱智内容"、"找屎"、"难绷"）。
-metadata: {"emoji":"💩","requires":{"bins":["node"]},"version":"2.1.0"}
+metadata: {"emoji":"","requires":{"bins":["node"]},"version":"2.1.0"}
 ---
 
 # 找屎 Skill (Shit Finder)
@@ -192,6 +192,63 @@ uv run python scripts/cli.py search-feeds --keyword "下头男"
 uv run python scripts/cli.py get-feed-detail --feed-id FEED_ID --xsec-token XSEC_TOKEN
 ```
 
+## 依赖技能检查
+
+Pipeline 启动时会自动检查依赖技能是否可用：
+
+### 检查逻辑
+
+1. **reddit-readonly** (必需)
+   - 自动检测常见安装路径
+   - 测试运行 `--help` 命令确认可用性
+   - 如果不可用，Pipeline 会立即失败并提示用户
+
+2. **xiaohongshu-skills** (可选)
+   - 仅在 `xiaohongshu.enabled: true` 时检查
+   - 检查登录状态（`check-login`）
+   - 如果未登录，提示用户执行登录流程
+
+### 跳过检查
+
+```bash
+# 跳过技能检查（如果确定技能已安装）
+npm run pipeline -- --skip-skill-check
+
+# 跳过获取帖子详情（不生成 TL;DR，加快执行速度）
+npm run pipeline -- --skip-content-fetch
+```
+
+### 自定义路径
+
+```bash
+export REDDIT_READONLY_PATH=/path/to/reddit-readonly.mjs
+export XIAOHONGSHU_PATH=/path/to/xiaohongshu-skills
+```
+
+## TL;DR 生成
+
+Pipeline 会自动获取选中帖子的详情，生成内容摘要：
+
+### Reddit 帖子
+- 获取帖子正文（如果是文本帖）
+- 获取前 3 条高赞评论
+- 生成摘要: `内容: xxx | 热评: "xxx"`
+
+### 小红书帖子
+- 获取笔记完整内容
+- 获取前 3 条热门评论
+- 生成摘要: `内容: xxx | 热评: "xxx"`
+
+### 跳过 TL;DR 生成
+
+如果不需要摘要（加快执行速度）：
+
+```typescript
+const result = await runPipeline({
+  skipContentFetch: true,  // 跳过获取详情
+});
+```
+
 ## 输出格式
 
 ### Library 模式结果
@@ -227,6 +284,7 @@ interface PipelineResult {
   dryRun: boolean;         // 是否试运行
   sent?: number;           // 发送成功数
   sendError?: string;      // 发送错误
+  skillCheckErrors?: string[]; // 依赖技能检查错误（如果有）
 }
 ```
 
@@ -235,28 +293,43 @@ interface PipelineResult {
 ### Reddit 帖子格式
 
 ```
-🎉 今日弱智内容精选 (3 条)
+今日弱智内容精选 (3 条)
 
-🥇 [8.6分] 🗿🗿🗿
-    📍 r/shitposting | 👍 20,819 | 💬 97 | 👤 u/ShitpostingKing
-    🎯 评分依据: 弱智板块: shitposting · 高热度 · 表情符号
-    🖼️ https://i.redd.it/...
-    🔗 https://www.reddit.com/r/shitposting/comments/...
+[1] 评分: 8.6/10
+标题: Something tells me this is how he got all his wins
+摘要: 内容: A truck carrying wine bottles crashed... | 热评: "Finally, a vintage with some body to it"
+来源: r/shitposting | 点赞: 5,897 | 评论: 84 | 作者: u/Stock-Discount7213
+推荐理由: 弱智板块: shitposting, 高热度
+https://i.redd.it/bf7htsf35og1.png
+讨论: https://www.reddit.com/r/shitposting/comments/...
 
-📅 3月8日 11:45
+---
+
+[2] 评分: 8.6/10
+标题: Dogshit
+摘要: 内容: Just a picture of actual dog poop... | 热评: "Why did I click on this?"
+来源: r/shitposting | 点赞: 4,591 | 评论: 115 | 作者: u/No_Employer3674
+推荐理由: 弱智板块: shitposting, 高热度, 高互动
+https://i.redd.it/ybnzccs533og1.jpeg
+讨论: https://www.reddit.com/r/shitposting/comments/...
+
+更新时间: 3月11日 00:25
 ```
 
 ### 小红书帖子格式
 
 ```
-🎉 今日弱智内容精选 (3 条)
+今日弱智内容精选 (2 条)
 
-🥇 [8.2分] 在杭州地铁上遇到恶心的人了
-    📕 小红书 | 👍 97 | ⭐ 11 | 💬 17 | 👤 菜宰治
-    🎯 评分依据: 小红书 · 关键词 · 高互动
-    🖼️ http://sns-webpic-qc.xhscdn.com/...
+[1] 评分: 8.2/10
+标题: 在杭州地铁上遇到恶心的人了
+摘要: 内容: 今天坐地铁遇到一个人... | 热评: "这种人也太离谱了吧"
+来源: 小红书 | 点赞: 97 | 收藏: 11 | 评论: 17 | 作者: 菜宰治
+推荐理由: 小红书, 关键词, 高互动
+http://sns-webpic-qc.xhscdn.com/...
+链接: https://www.xiaohongshu.com/explore/...
 
-📅 3月9日 22:20
+更新时间: 3月9日 22:20
 ```
 
 ## 使用示例
@@ -369,6 +442,8 @@ if (message.includes('弱智') || message.includes('难绷') || message.includes
 | REDDIT_READONLY_PATH | reddit-readonly 脚本路径 | - |
 | **XIAOHONGSHU_ENABLED** | **启用小红书源** | **false** |
 | **XIAOHONGSHU_PATH** | **xiaohongshu-skills 路径** | **~/.openclaw/workspace/skills/xiaohongshu** |
+| SKIP_SKILL_CHECK | 跳过依赖技能检查 | false |
+| SKIP_CONTENT_FETCH | 跳过获取帖子详情（不生成 TL;DR）| false |
 
 ## 相关项目
 
