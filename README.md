@@ -102,7 +102,9 @@ shit-finder/
 ├── shit_finder.py     # Python helper for scoring/formatting
 ├── index.js           # Node.js wrapper (optional)
 ├── README.md          # This file
-└── package.json       # NPM metadata
+├── package.json       # NPM metadata
+└── config/
+    └── sources.json   # Source configuration
 ```
 
 ## Scoring Criteria
@@ -116,6 +118,8 @@ See [SKILL.md](SKILL.md) for detailed scoring rules:
 | Punctuation | +0.8 | ???, !!! |
 | Source | +2.0 | shitposting, okbuddyretard |
 | Engagement | +0.8 | High likes/comments |
+
+**Blacklist:** Posts containing nsfw, gore, death, kill, porn, politic, trump, biden are excluded.
 
 ## Configuration
 
